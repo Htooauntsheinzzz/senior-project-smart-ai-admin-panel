@@ -1,0 +1,17 @@
+.git
+.gitignore
+.dockerignore
+node_modules
+dist
+coverage
+.vite
+.eslintcache
+.env
+.env.*
+*.log
+.DS_Store
+.idea
+.vscode
+spec-md
+Agent.md
+README.md

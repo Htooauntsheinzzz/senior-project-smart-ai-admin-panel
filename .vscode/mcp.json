@@ -1,0 +1,9 @@
+{
+  "inputs": [],
+  "servers": {
+    "figma": {
+      "type": "http",
+      "url": "https://www.figma.com/design/FQhq9uVri66RJpADxECMtm/Smart-Ai-Admin-Web?node-id=1-10&m=dev"
+    }
+  }
+}
