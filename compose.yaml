@@ -1,12 +1,5 @@
 include:
-  - path: ../../backend/seniorproject/compose.yaml
-    env_file: ../../backend/seniorproject/.env
+  - path: ${BACKEND_PATH:-../../backend/senior-project-smart-ai-web-backend}/compose.yaml
+    env_file: ${BACKEND_PATH:-../../backend/senior-project-smart-ai-web-backend}/.env
 
 name: smart-university
-
-services:
-  admin-web:
-    build:
-      context: .
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
