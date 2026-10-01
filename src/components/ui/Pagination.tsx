@@ -1,0 +1,8 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import type { ReactNode } from 'react'
+
+export default function Pagination({ page, pageCount, onPage, summary, label }: { page: number; pageCount: number; onPage: (page: number) => void; summary: ReactNode; label: string }) {
+  const pages = Array.from({ length: pageCount }, (_, index) => index + 1).filter(number => number === 1 || number === pageCount || Math.abs(page - number) <= 1)
+  const button = 'flex size-8 items-center justify-center rounded-lg border border-[#e5e8f0] bg-white text-xs font-semibold text-[#68728a] hover:bg-[#f7f8fc] focus-visible:outline-2 disabled:cursor-default disabled:opacity-40'
+  return <nav aria-label={label} className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#68728a]"><p role="status">{summary}</p><div className="flex items-center gap-1.5"><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => onPage(page - 1)} className={button}><ChevronLeft size={14} /></button>{pages.map((number, index) => <span key={number} className="flex items-center gap-1.5">{index > 0 && number > pages[index - 1] + 1 && <span aria-hidden="true" className="px-1">…</span>}<button type="button" aria-label={`Page ${number}`} aria-current={page === number ? 'page' : undefined} onClick={() => onPage(number)} className={`${button} ${page === number ? 'border-[#273238]! bg-[#273238]! text-white!' : ''}`}>{number}</button></span>)}<button type="button" aria-label="Next page" disabled={page >= pageCount} onClick={() => onPage(page + 1)} className={button}><ChevronRight size={14} /></button></div></nav>
+}
