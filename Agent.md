@@ -4,6 +4,10 @@
 
 This repository contains the frontend application for the:
 
+## Remainder For backend
+
+Do not Change the backend code.(The Backend is already Completed)
+
 **Smart AI University Student Assistant – Admin Web**
 
 The frontend is responsible for providing the administration interface for managing users, university data, system configuration, and other modules used by the Smart AI University Student Assistant platform.
