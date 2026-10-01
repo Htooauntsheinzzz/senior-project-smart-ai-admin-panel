@@ -2,6 +2,19 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LoginPage from '../pages/auth/LoginPage'
 import DashboardPage from '../pages/dashboard/DashboardPage'
+import AdminUsersPage from '../pages/users/AdminUsersPage'
+import AdminUsersContent from '../components/users/AdminUsersContent'
+import AddAdminUserContent from '../components/users/AddAdminUserContent'
+import StudentsPage from '../pages/students/StudentsPage'
+import TimetablePage from '../pages/timetable/TimetablePage'
+import FacultiesPage from '../pages/faculties/FacultiesPage'
+import DepartmentsPage from '../pages/departments/DepartmentsPage'
+import ProgramsPage from '../pages/programs/ProgramsPage'
+import CoursesPage from '../pages/courses/CoursesPage'
+import CoursesContent from '../components/courses/CoursesContent'
+import AddCourseContent from '../components/courses/AddCourseContent'
+import SectionsPage from '../pages/sections/SectionsPage'
+import EnrollmentsPage from '../pages/enrollments/EnrollmentsPage'
 import ProtectedRoute from './ProtectedRoute'
 
 function RootRedirect() {
@@ -33,6 +46,21 @@ export default function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute />}>
         <Route index element={<Navigate replace to="dashboard" />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="users" element={<AdminUsersPage />}>
+          <Route index element={<AdminUsersContent />} />
+          <Route path="new" element={<AddAdminUserContent />} />
+        </Route>
+        <Route path="students" element={<StudentsPage />} />
+        <Route path="timetable" element={<TimetablePage />} />
+        <Route path="faculties" element={<FacultiesPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="programs" element={<ProgramsPage />} />
+        <Route path="sections" element={<SectionsPage />} />
+        <Route path="enrollments" element={<EnrollmentsPage />} />
+        <Route path="courses" element={<CoursesPage />}>
+          <Route index element={<CoursesContent />} />
+          <Route path="new" element={<AddCourseContent />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
