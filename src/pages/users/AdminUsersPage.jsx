@@ -2,13 +2,11 @@ import { useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import AdminLayout from '../../layouts/AdminLayout'
-import { initialAdminUsers } from '../../data/adminUsers'
 
 export default function AdminUsersPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [users, setUsers] = useState(initialAdminUsers)
 
   async function handleLogout() {
     if (isLoggingOut) return
@@ -23,5 +21,5 @@ export default function AdminUsersPage() {
     }
   }
 
-  return <AdminLayout onLogout={handleLogout} isLoggingOut={isLoggingOut} email={user?.email}><Outlet context={{ users, setUsers }} /></AdminLayout>
+  return <AdminLayout onLogout={handleLogout} isLoggingOut={isLoggingOut} email={user?.email}><Outlet /></AdminLayout>
 }
