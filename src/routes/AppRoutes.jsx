@@ -49,6 +49,7 @@ export default function AppRoutes() {
         <Route path="users" element={<AdminUsersPage />}>
           <Route index element={<AdminUsersContent />} />
           <Route path="new" element={<AddAdminUserContent />} />
+          <Route path=":id/edit" element={<AddAdminUserContent />} />
         </Route>
         <Route path="students" element={<StudentsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
