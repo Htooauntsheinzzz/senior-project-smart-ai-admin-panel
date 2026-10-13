@@ -72,7 +72,10 @@ export interface UpdateAdminUserPayload {
   roleId: number
 }
 
-export declare function createUser(payload: CreateAdminUserPayload): Promise<AdminUserDetail>
+export declare function isValidUserId(id: unknown): boolean
+
+// POST returns the provisioning response, not the GET detail audit fields.
+export declare function createUser(payload: CreateAdminUserPayload): Promise<Omit<AdminUserSummary, 'updatedAt'> & { forcePasswordChange: boolean; createdBy: number | null }>
 
 export declare function getUsers(params?: AdminUserListParams): Promise<AdminUserPage>
 

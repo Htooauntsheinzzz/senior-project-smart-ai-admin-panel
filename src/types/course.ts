@@ -17,5 +17,7 @@ export interface Course {
   description?: string
   prerequisiteCodes?: string[]
   maxStudentsPerSection?: number | null
+  semesterId?: string
 }
 export type CourseFilters = { query: string; facultyId: string; departmentId: string; programId: string; year: string; term: string; status: string }
+export type CourseDraft = { code: string; credits: string; name: string; description: string; facultyId: string; departmentId: string; programId: string; year: string; term: string; prerequisites: string; type: 'Required' | 'Elective'; maxStudents: string; status: 'active' | 'inactive' }

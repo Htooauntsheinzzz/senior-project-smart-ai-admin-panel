@@ -2,9 +2,8 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { useNavigate, useParams } from 'react-router-dom'
 import { accountStatuses, adminRoles } from '../../types/adminUser'
 import { buildCreatePayload, buildUpdatePayload, emptyAdminForm, validateAdminForm, type AdminFormErrors, type AdminFormValues } from '../../utils/addAdminUser'
-import { apiErrorMessage } from '../../utils/apiError'
-import { createUser, getUserById, updateUser } from '../../services/userService'
-import { getDepartments, type DepartmentOption } from '../../services/departmentService'
+import { adminUserFieldErrors, apiErrorMessage } from '../../utils/apiError'
+import { createUser, getUserById, isValidUserId, updateUser } from '../../services/userService'
 import Modal from '../ui/Modal'
 
 function FormSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
@@ -17,7 +16,7 @@ function FormSection({ title, description, children }: { title: string; descript
 
 export default function AddAdminUserContent() {
   const { id } = useParams()
-  const editId = id && /^\d+$/.test(id) ? Number(id) : null
+  const editId = isValidUserId(id) ? Number(id) : null
   const navigate = useNavigate()
   const [value, setValue] = useState<AdminFormValues>({ ...emptyAdminForm })
   const [errors, setErrors] = useState<AdminFormErrors>({})
@@ -26,8 +25,10 @@ export default function AddAdminUserContent() {
   const [feedback, setFeedback] = useState('')
   const [created, setCreated] = useState(false)
   const [discard, setDiscard] = useState(false)
-  const [departments, setDepartments] = useState<DepartmentOption[]>([])
-  const [loadingUser, setLoadingUser] = useState(false)
+  const [loadingUser, setLoadingUser] = useState(id != null)
+  const [attempt, setAttempt] = useState(0)
+  const [existingRole, setExistingRole] = useState<{ id: number; name: string } | null>(null)
+  const [loadedId, setLoadedId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState('')
   const submitting = useRef(false)
   const form = useRef<HTMLFormElement>(null)
@@ -35,17 +36,17 @@ export default function AddAdminUserContent() {
   const dirty = Object.keys(emptyAdminForm).some(key => value[key as keyof AdminFormValues] !== initial.current[key as keyof AdminFormValues])
 
   useEffect(() => {
-    let cancelled = false
-    getDepartments({ size: 100, status: 'ACTIVE', sort: 'departmentName,asc' })
-      .then(data => { if (!cancelled) setDepartments(data.content ?? []) })
-      .catch(() => { if (!cancelled) setFeedback('Unable to load departments. You can still save without a department.') })
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => {
-    if (id == null) return
+    setLoadedId(null)
+    setValue({ ...emptyAdminForm })
+    initial.current = { ...emptyAdminForm }
+    setErrors({})
+    setFeedback('')
+    setCreated(false)
+    setLoadError('')
+    if (id == null) { setLoadingUser(false); return }
     if (editId == null) {
       setLoadError('User not found.')
+      setLoadingUser(false)
       return
     }
     let cancelled = false
@@ -70,11 +71,13 @@ export default function AddAdminUserContent() {
         }
         initial.current = loaded
         setValue(loaded)
+        setLoadedId(editId)
+        setExistingRole(primaryRole ? { id: primaryRole.id, name: primaryRole.roleName } : null)
       })
       .catch(error => { if (!cancelled) setLoadError(apiErrorMessage(error, 'Unable to load the admin user. Please try again.')) })
       .finally(() => { if (!cancelled) setLoadingUser(false) })
     return () => { cancelled = true }
-  }, [id, editId])
+  }, [id, editId, attempt])
 
   useEffect(() => {
     if (!dirty) return
@@ -91,7 +94,7 @@ export default function AddAdminUserContent() {
   function leave() { if (dirty) setDiscard(true); else navigate('/admin/users') }
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (submitting.current || created) return
+    if (submitting.current || created || loadingUser || loadError || (id != null && loadedId !== editId)) return
     const nextErrors = validateAdminForm(value, { requirePassword: editId == null })
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) {
@@ -105,7 +108,7 @@ export default function AddAdminUserContent() {
       if (editId != null) {
         await updateUser(editId, buildUpdatePayload(value))
         initial.current = { ...value }
-        setFeedback(`${value.firstName.trim()} ${value.lastName.trim()} was updated successfully.`)
+        navigate('/admin/users', { state: { created: `${value.firstName.trim()} ${value.lastName.trim()} was updated successfully.` } })
       } else {
         await createUser(buildCreatePayload(value))
         const name = `${value.firstName.trim()} ${value.lastName.trim()}`
@@ -118,7 +121,9 @@ export default function AddAdminUserContent() {
       }
       setCreated(true)
     } catch (error) {
+      setErrors(adminUserFieldErrors(error))
       setFeedback(apiErrorMessage(error, 'Unable to complete the request. Please try again.'))
+      requestAnimationFrame(() => form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
     } finally {
       submitting.current = false
       setPending(false)
@@ -143,7 +148,7 @@ export default function AddAdminUserContent() {
   return <main className="min-w-0 px-4 py-6 text-[#17213c] sm:px-7">
     <div className="max-w-[900px]">
       <header className="mb-6 flex items-center gap-3"><button type="button" onClick={leave} disabled={pending} aria-label="Back to User Management" className="flex size-9 shrink-0 items-center justify-center rounded-xl border-[0.625px] border-[#e5e8f0] focus-visible:outline-2"><img src="/assets/figma/admin-back.svg" width="14" height="14" alt="" /></button><div><h1 className="font-display text-[22px] leading-[33px] font-bold tracking-[-0.55px]">{editId != null ? 'Edit Admin User' : 'Add Admin User'}</h1><p className="mt-1 text-[13.5px] leading-[20.25px] text-[#68728a]">{editId != null ? 'Update staff account details and administrative access.' : 'Create a new staff account with administrative access.'}</p></div></header>
-      {loadingUser ? <p className="text-sm text-[#68728a]">Loading user…</p> : loadError ? <p role="alert" className="text-sm text-[#68728a]">{loadError}</p> : <>
+      {loadingUser || (id != null && loadedId !== editId && !loadError) ? <p role="status" className="text-sm text-[#68728a]">Loading user…</p> : loadError ? <div role="alert" className="text-sm text-[#68728a]">{loadError}<button type="button" onClick={() => setAttempt(previous => previous + 1)} className={`${button} mt-3 border border-[#e5e8f0]`}>Retry</button></div> : <>
       <form ref={form} onSubmit={submit} noValidate aria-label={editId != null ? 'Edit Admin User' : 'Add Admin User'}>
         <fieldset disabled={pending || created} className="min-w-0 space-y-5">
           <FormSection title="Personal Information" description="Basic identity details for the staff member.">
@@ -154,11 +159,11 @@ export default function AddAdminUserContent() {
             {field('email', 'Email Address', 'staff@rsu.ac.th', { type: 'email', full: true })}
           </FormSection>
           <FormSection title="Administrative Access" description="Department assignment, role, and initial account status.">
-            {field('departmentId', 'Department', 'Select department', { optional: true, choices: departments.map(department => ({ value: String(department.id), label: department.departmentName })) })}
+            {field('departmentId', 'Department', 'No department', { optional: true, choices: initial.current.departmentId ? [{ value: initial.current.departmentId, label: `Department ID ${initial.current.departmentId}` }] : [] })}
             {field('accountStatus', 'Account Status', '', { choices: accountStatuses, optional: true })}
-            {field('roleId', 'Role', 'Select a role', { choices: adminRoles.map(role => ({ value: String(role.id), label: role.name })), full: true })}
+            {field('roleId', 'Role', 'Select a role', { choices: [...adminRoles, ...(existingRole && !adminRoles.some(role => role.id === existingRole.id) ? [existingRole] : [])].map(role => ({ value: String(role.id), label: role.name })), full: true })}
           </FormSection>
-          {editId == null && <FormSection title="Security" description="Set a temporary password. The user will be required to change it on first login.">
+          {editId == null && <FormSection title="Security" description="Set a temporary password and choose whether to require a change on first login.">
             {field('temporaryPassword', 'Temporary Password', 'Min. 15 characters')}
             {field('confirmPassword', 'Confirm Password', 'Re-enter password')}
             <div className="flex items-start gap-3 sm:col-span-2"><input id="forcePasswordChange" name="forcePasswordChange" type="checkbox" checked={value.forcePasswordChange} onChange={event => update('forcePasswordChange', event.target.checked)} aria-describedby="force-password-help" className="mt-0.5 size-5 shrink-0 appearance-none rounded-[5px] border border-[#e5e8f0] bg-center bg-no-repeat checked:border-[#273238] checked:bg-[#273238] checked:bg-[url('/assets/figma/admin-check.svg')] focus-visible:outline-2 focus-visible:outline-offset-2" /><div><label htmlFor="forcePasswordChange" className="text-[13px] leading-[19.5px] font-semibold">Force password change on first login</label><p id="force-password-help" className="mt-1 text-[12px] leading-[18px] text-[#68728a]">The user will be required to set a new password immediately after their first successful sign-in.</p></div></div>
@@ -166,6 +171,7 @@ export default function AddAdminUserContent() {
         </fieldset>
         <div className="flex flex-wrap justify-end gap-3 pt-5 pb-4"><button type="button" onClick={leave} disabled={pending} className={`${button} border-[0.625px] border-[#e5e8f0] hover:bg-white`}>{created ? 'Back to Admin Users' : 'Cancel'}</button>{!created && <button type="submit" disabled={pending} className={`${button} bg-[#273238] text-white shadow-[0_4px_7px_#27323838] hover:bg-[#1a2329]`}><img src="/assets/figma/admin-user-plus.svg" width="15" height="15" alt="" />{pending ? editId != null ? 'Updating…' : 'Creating…' : editId != null ? 'Update Admin User' : 'Create Admin User'}</button>}</div>
         <p role="status" aria-live="polite" className="mt-3 text-[13px] leading-5 text-[#68728a]">{feedback}</p>
+        <p className="mt-3 text-xs leading-5 text-[#68728a]">Department lookup is unavailable in the current API; you can save without a department{editId != null ? ' or retain the existing assignment' : ''}. Role choices use the existing seeded role configuration because a role lookup API is not available.</p>
       </form>
       </>}
     </div>

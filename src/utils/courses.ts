@@ -7,7 +7,7 @@ export function filterCourses(courses: Course[], filters: CourseFilters) {
   return courses.filter(course => [course.code, course.name].some(value => value.toLocaleLowerCase().includes(query)) &&
     (!filters.facultyId || course.facultyId === filters.facultyId) && (!filters.departmentId || course.departmentId === filters.departmentId) &&
     (!filters.programId || course.programIds.includes(filters.programId)) && (!filters.year || String(course.curriculumYear) === filters.year) &&
-    (!filters.term || `${course.semester}/${course.academicYear}` === filters.term) && (!filters.status || course.status === filters.status))
+    (!filters.term || course.semesterId === filters.term || `${course.semester}/${course.academicYear}` === filters.term) && (!filters.status || course.status === filters.status))
 }
 export function changeCourseFilter(filters: CourseFilters, field: keyof CourseFilters, value: string, courses: Course[]): CourseFilters {
   const next = { ...filters, [field]: value }
