@@ -14,8 +14,11 @@ const focus = 'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus
 
 export default function Sidebar({ compact, onToggleCompact, onClose, onUnavailable }: Props) {
   const pathname = useLocation().pathname
+  // Groups start collapsed and open on click; only the group holding the
+  // current page opens automatically so the active link stays visible.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(navigation.filter(item => item.children).map(item => [item.id, true])),
+    Object.fromEntries(navigation.filter(item => item.children).map(item =>
+      [item.id, item.children!.some(child => child.to && pathname.startsWith(child.to))])),
   )
 
   function destination(item: { label: string; to?: string }, content: ReactNode, className: string) {

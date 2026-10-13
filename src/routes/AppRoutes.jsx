@@ -11,6 +11,7 @@ import TimetablePage from '../pages/timetable/TimetablePage'
 import FacultiesPage from '../pages/faculties/FacultiesPage'
 import DepartmentsPage from '../pages/departments/DepartmentsPage'
 import ProgramsPage from '../pages/programs/ProgramsPage'
+import LecturersPage from '../pages/lecturers/LecturersPage'
 import CoursesPage from '../pages/courses/CoursesPage'
 import CoursesContent from '../components/courses/CoursesContent'
 import AddCourseContent from '../components/courses/AddCourseContent'
@@ -80,8 +81,9 @@ export default function AppRoutes() {
         <Route path="university-settings" element={<UniversitySettingsPage />} />
         <Route path="audit-logs" element={<AuditLogsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
-        <Route path="semesters" element={<AcademicManagementPage kind="semesters" />} />
-        <Route path="lectures" element={<AcademicManagementPage kind="lectures" />} />
+        <Route path="semesters" element={<AcademicManagementPage />} />
+        <Route path="lectures" element={<LecturersPage />} />
+        <Route path="lecturers" element={<Navigate replace to="/admin/lectures" />} />
         <Route path="faculties" element={<FacultiesPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="programs" element={<ProgramsPage />} />

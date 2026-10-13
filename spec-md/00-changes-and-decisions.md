@@ -4,6 +4,15 @@
 
 This document records implementation changes and technical decisions for the Smart AI Admin Web frontend.
 
+## 2026-10-13 - Semester reimplementation against the current backend (spec 36)
+
+- Frontend only; backend read, not changed. The backend now requires `academicYear` (Integer 2000–2100) on create and update (Flyway V20), so the previous names-only form was rejected with 400. Requests now send exactly `{ academicYear, semesterNameTh, semesterNameEn }`.
+- Spec 36 mentions a `status` field (ACTIVE); the backend has no semester status, so no status field, badge or filter was added.
+- List uses server pagination (10 per page, `sort=academicYear,desc`), backend `search` (Thai/English name) and `academicYear` filter. Response is the plain page object. Table shows No., Semester Name (EN with TH below), Academic Year, Created, Last Updated, Actions.
+- Removed the client-side reference preflight before delete: it sent `semesterId` to `/students`, which that endpoint rejects with 400, so every delete failed. Delete now calls only `DELETE /semesters/{id}` (soft delete, 204) after the confirm modal.
+- Follows the Lecturers pattern: drawer for add/edit (`?add=1`), modal for details and delete confirm, green auto-dismissing toast on create/update/delete. SEMESTER_ALREADY_EXISTS (409) marks year and both names.
+- Courses and Course Sections still use the semester lookup in `courseService.getSemesters`, unchanged.
+
 ## 2026-10-07 - Frontend-only correction: existing APIs only
 
 - User explicitly prohibited backend code changes and selected **Existing APIs only** after the missing API capabilities were explained. This supersedes the full-stack entry below.
