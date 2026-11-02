@@ -30,6 +30,12 @@ import NotificationsPage from '../pages/communication/NotificationsPage'
 import RemindersPage from '../pages/communication/RemindersPage'
 import UniversitySettingsPage from '../pages/settings/UniversitySettingsPage'
 import AuditLogsPage from '../pages/settings/AuditLogsPage'
+import TestKnowledgePage from '../pages/ai/TestKnowledgePage'
+import KnowledgeBasePage from '../pages/ai/KnowledgeBasePage'
+import AiAssistantPage from '../pages/ai/AiAssistantPage'
+import ChatHistoryPage from '../pages/ai/ChatHistoryPage'
+import AiFeedbackPage from '../pages/ai/AiFeedbackPage'
+import ReportsPage from '../pages/reports/ReportsPage'
 
 function RootRedirect() {
   const { isAuthenticated, isAuthLoading } = useAuth()
@@ -80,6 +86,12 @@ export default function AppRoutes() {
         <Route path="reminders" element={<RemindersPage />} />
         <Route path="university-settings" element={<UniversitySettingsPage />} />
         <Route path="audit-logs" element={<AuditLogsPage />} />
+        <Route path="test-ai-knowledge" element={<TestKnowledgePage />} />
+        <Route path="ai-knowledge-base" element={<KnowledgeBasePage />} />
+        <Route path="ai-assistant" element={<AiAssistantPage />} />
+        <Route path="chat-history" element={<ChatHistoryPage />} />
+        <Route path="ai-feedback" element={<AiFeedbackPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
         <Route path="semesters" element={<AcademicManagementPage />} />
         <Route path="lectures" element={<LecturersPage />} />

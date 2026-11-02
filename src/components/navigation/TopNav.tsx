@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { Activity, Bell, BookOpen, Building2, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Megaphone, Menu, Search, Settings, Users } from 'lucide-react'
+import { Activity, BarChart3, Bell, BookOpen, Bot, Building2, CalendarDays, ChevronDown, GraduationCap, LayoutDashboard, LogOut, Megaphone, Menu, Search, Settings, Users } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { announcements, classes } from '../../data/dashboard'
 
@@ -17,6 +17,13 @@ const control = 'rounded-lg p-2 text-[#68728a] hover:bg-[#f7f8fc] focus-visible:
 export default function TopNav({ onOpenNavigation, navigationOpen, navigationTrigger, onLogout, isLoggingOut, email }: Props) {
   const pathname = useLocation().pathname
   const isUserManagement = pathname.startsWith('/admin/users')
+  const isReports = pathname.startsWith('/admin/reports')
+  const isTestKnowledge = pathname.startsWith('/admin/test-ai-knowledge')
+  const isKnowledgeBase = pathname.startsWith('/admin/ai-knowledge-base')
+  const isAiAssistant = pathname.startsWith('/admin/ai-assistant')
+  const isChatHistory = pathname.startsWith('/admin/chat-history')
+  const isAiFeedback = pathname.startsWith('/admin/ai-feedback')
+  const isAi = isTestKnowledge || isKnowledgeBase || isAiAssistant || isChatHistory || isAiFeedback
   const isUniversitySettings = pathname.startsWith('/admin/university-settings')
   const isAuditLogs = pathname.startsWith('/admin/audit-logs')
   const isSettings = isUniversitySettings || isAuditLogs
@@ -40,8 +47,8 @@ export default function TopNav({ onOpenNavigation, navigationOpen, navigationTri
   const isSections = pathname.startsWith('/admin/sections')
   const isEnrollments = pathname.startsWith('/admin/enrollments')
   const isAcademic = pathname.startsWith('/admin/faculties') || isDepartments || isPrograms || isCourses || isSections || isEnrollments
-  const PageIcon = isSettings ? Settings : isCommunication ? Megaphone : isCampus ? Building2 : isAssignments || isExams ? Activity : isAcademic ? BookOpen : isTimetable ? CalendarDays : isStudents ? GraduationCap : isUserManagement ? Users : LayoutDashboard
-  const pageLabel = isSettings ? 'Settings' : isCommunication ? 'Communication' : isCampus ? 'Campus Management' : isAssignments || isExams ? 'Academic Activities' : isAcademic ? 'Academic Management' : isTimetable ? 'Timetable' : isStudents ? 'Students' : isUserManagement ? 'User Management' : 'Dashboard'
+  const PageIcon = isReports ? BarChart3 : isAi ? Bot : isSettings ? Settings : isCommunication ? Megaphone : isCampus ? Building2 : isAssignments || isExams ? Activity : isAcademic ? BookOpen : isTimetable ? CalendarDays : isStudents ? GraduationCap : isUserManagement ? Users : LayoutDashboard
+  const pageLabel = isReports ? 'Reports & Analytics' : isAi ? 'AI Management' : isSettings ? 'Settings' : isCommunication ? 'Communication' : isCampus ? 'Campus Management' : isAssignments || isExams ? 'Academic Activities' : isAcademic ? 'Academic Management' : isTimetable ? 'Timetable' : isStudents ? 'Students' : isUserManagement ? 'User Management' : 'Dashboard'
   const pagePath = isNavigationRoutes ? '/admin/navigation-routes' : isCampusPlaces ? '/admin/campus-places' : isRooms ? '/admin/rooms' : isBuildings ? '/admin/buildings' : isCampusMap ? '/admin/campus-map' : isExams ? '/admin/exams' : isAssignments ? '/admin/assignments' : isEnrollments ? '/admin/enrollments' : isSections ? '/admin/sections' : isCourses ? '/admin/courses' : isPrograms ? '/admin/programs' : isDepartments ? '/admin/departments' : isAcademic ? '/admin/faculties' : isTimetable ? '/admin/timetable' : isStudents ? '/admin/students' : isUserManagement ? '/admin/users' : '/admin/dashboard'
   const [open, setOpen] = useState<'search' | 'notifications' | 'account' | null>(null)
   const [query, setQuery] = useState('')
@@ -71,7 +78,7 @@ export default function TopNav({ onOpenNavigation, navigationOpen, navigationTri
       <button type="submit" aria-label="Search dashboard sample data" className={control}><Search size={16} /></button>
       <input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} aria-label="Search students, courses, rooms" placeholder="Search students, courses, rooms…" className="h-9 min-w-0 flex-1 rounded-r-xl bg-transparent pr-3 text-[11px] text-[#68728a] outline-none focus-visible:ring-2 focus-visible:ring-[#68728a]" />
     </form>
-    <NavLink to={isAuditLogs ? '/admin/audit-logs' : isUniversitySettings ? '/admin/university-settings' : isReminders ? '/admin/reminders' : isNotifications ? '/admin/notifications' : isAnnouncements ? '/admin/announcements' : pagePath} className="flex items-center gap-2 rounded-xl border border-[#e5e8f0] px-3 py-2 text-xs font-medium text-[#68728a] focus-visible:outline-2"><PageIcon size={14} aria-hidden="true" />{pageLabel}</NavLink>
+    <NavLink to={isReports ? '/admin/reports' : isAiFeedback ? '/admin/ai-feedback' : isChatHistory ? '/admin/chat-history' : isAiAssistant ? '/admin/ai-assistant' : isKnowledgeBase ? '/admin/ai-knowledge-base' : isTestKnowledge ? '/admin/test-ai-knowledge' : isAuditLogs ? '/admin/audit-logs' : isUniversitySettings ? '/admin/university-settings' : isReminders ? '/admin/reminders' : isNotifications ? '/admin/notifications' : isAnnouncements ? '/admin/announcements' : pagePath} className="flex items-center gap-2 rounded-xl border border-[#e5e8f0] px-3 py-2 text-xs font-medium text-[#68728a] focus-visible:outline-2"><PageIcon size={14} aria-hidden="true" />{pageLabel}</NavLink>
     <div className="flex-1" />
     <button ref={notifications} type="button" aria-label="Notifications" aria-expanded={open === 'notifications'} aria-controls={open === 'notifications' ? 'topnav-panel' : undefined} onClick={() => setOpen(value => value === 'notifications' ? null : 'notifications')} className={`relative ${control}`}><Bell size={18} /><span className="absolute top-1.5 right-2 size-1.5 rounded-full border border-white bg-[#dc4c8d]" /></button>
     <button ref={account} type="button" aria-label="Administrator account" aria-expanded={open === 'account'} aria-controls={open === 'account' ? 'topnav-panel' : undefined} onClick={() => setOpen(value => value === 'account' ? null : 'account')} className="flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"><span className="flex size-8 items-center justify-center rounded-full bg-[#273238] text-[10px] font-bold text-white">AD</span><ChevronDown size={13} className="text-[#9ca3af]" /></button>
