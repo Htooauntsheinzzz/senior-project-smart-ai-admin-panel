@@ -21,7 +21,7 @@ export type ApiCourse = {
   curriculumYear: number | null
   courseType: number
   courseTypeName: string
-  sectionCount: number
+  sectionCount: number | null
   status: 'active' | 'inactive'
   description?: string | null
   prerequisiteCourses?: string | null
@@ -74,11 +74,15 @@ export function coursePayload(value: CourseDraft) {
 }
 
 export function mapCourse(value: unknown): ApiCourse {
+  return mapCourseResponse(value, false)
+}
+
+function mapCourseResponse(value: unknown, detail: boolean): ApiCourse {
   const row = value as Record<string, unknown> | null
   if (!row || !count(row.id) || !row.id || typeof row.courseCode !== 'string' || typeof row.courseName !== 'string' || !count(row.creditHours) ||
       !count(row.facultyId) || !row.facultyId || typeof row.facultyCode !== 'string' || typeof row.facultyNameEn !== 'string' ||
       !count(row.departmentId) || !row.departmentId || typeof row.departmentCode !== 'string' || typeof row.departmentName !== 'string' ||
-      typeof row.courseTypeName !== 'string' || typeof row.isActive !== 'boolean' || !count(row.sectionCount)) {
+      typeof row.courseTypeName !== 'string' || typeof row.isActive !== 'boolean' || !(count(row.sectionCount) || (detail && row.sectionCount === undefined))) {
     throw new Error('Unexpected course response.')
   }
   return {
@@ -101,7 +105,7 @@ export function mapCourse(value: unknown): ApiCourse {
     curriculumYear: row.recommendedAcademicYear == null ? null : (typeof row.recommendedAcademicYear === 'number' ? row.recommendedAcademicYear : null),
     courseType: typeof row.courseType === 'number' ? row.courseType : 200,
     courseTypeName: row.courseTypeName,
-    sectionCount: row.sectionCount as number,
+    sectionCount: row.sectionCount === undefined ? null : row.sectionCount as number,
     status: row.isActive ? 'active' : 'inactive',
     description: row.description == null ? null : String(row.description),
     prerequisiteCourses: row.prerequisiteCourses == null ? null : String(row.prerequisiteCourses),
@@ -177,7 +181,7 @@ export async function getCourseSummary(signal?: AbortSignal): Promise<CourseSumm
 
 export async function getCourseById(id: string) {
   const { data } = await apiClient.get(coursePath(id))
-  return mapCourse(data)
+  return mapCourseResponse(data, true)
 }
 
 export async function createCourse(value: CourseDraft) { await apiClient.post('/courses', coursePayload(value)) }

@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { getLecturerDirectory, type ApiLecturer } from '../../services/lecturerService'
 import type { ApiSection } from '../../services/sectionService'
 import type { Semester } from '../../services/courseService'
 import type { SectionDraft } from '../../types/courseSection'
@@ -8,6 +9,18 @@ import Modal from '../ui/Modal'
 
 export default function CreateSectionDrawer({ section, courses, semesters, onSave, onClose }: { section?: ApiSection; courses: { id: string; code: string; name: string }[]; semesters: Semester[]; onSave: (value: SectionDraft) => void | Promise<void>; onClose: () => void }) {
   const isEdit = !!section
+  const [lecturers, setLecturers] = useState<ApiLecturer[]>()
+  const [lecturerError, setLecturerError] = useState('')
+  const [lecturerAttempt, setLecturerAttempt] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    getLecturerDirectory({ query: '', facultyId: '', departmentId: '', status: 'active' }, controller.signal).then(rows => {
+      if (!controller.signal.aborted) { setLecturers(rows); setLecturerError('') }
+    }).catch(() => { if (!controller.signal.aborted) setLecturerError('Unable to load lecturers. Please retry.') })
+    return () => controller.abort()
+  }, [lecturerAttempt])
+  const lecturerOptions = (lecturers ?? []).map(lecturer => ({ value: lecturer.id, label: `${lecturer.nameEn || lecturer.nameTh}${lecturer.nickname ? ` (${lecturer.nickname})` : ''}` }))
+  if (section && !lecturerOptions.some(option => option.value === section.lectureId)) lecturerOptions.push({ value: section.lectureId, label: `${section.lectureNameEn || section.lectureNameTh} (current assignment)` })
   const courseOptions = courses.map(course => ({ value: course.id, label: `${course.code} — ${course.name}` }))
   if (section && !courses.some(course => course.id === section.courseId)) courseOptions.push({ value: section.courseId, label: `${section.courseCode} — ${section.courseName} (current assignment)` })
   const semesterOptions = semesters.map(semester => ({ value: semester.id, label: semester.semesterNameEn || semester.semesterNameTh }))
@@ -59,7 +72,7 @@ export default function CreateSectionDrawer({ section, courses, semesters, onSav
     { key: 'courseId', label: 'Course', placeholder: 'Select a course…', required: true, full: true, options: courseOptions },
     { key: 'number', label: 'Section Number', placeholder: 'e.g. 01', required: true },
     { key: 'capacity', label: 'Capacity', placeholder: '50', numeric: true },
-    { key: 'lecturerId', label: 'Lecturer', placeholder: 'Enter lecturer ID…', required: true, full: true },
+    { key: 'lecturerId', label: 'Lecturer', placeholder: !lecturers && !lecturerError ? 'Loading lecturers…' : 'Select a lecturer…', required: true, full: true, options: lecturerOptions },
     { key: 'room', label: 'Room', placeholder: 'e.g. IT-301', full: true },
     { key: 'schedule', label: 'Schedule', placeholder: 'e.g. Mon/Wed 09:00–10:30', full: true },
     { key: 'semester', label: 'Semester', placeholder: 'Select a semester…', required: true, full: true, options: semesterOptions },
@@ -80,8 +93,8 @@ export default function CreateSectionDrawer({ section, courses, semesters, onSav
           return <div key={field.key} className={`min-w-0 ${field.full ? 'min-[400px]:col-span-2' : ''}`}><label htmlFor={attrs.id} className="mb-1.5 block text-[12.5px] leading-[18.75px] font-semibold">{field.label}{field.required && <span aria-hidden="true" className="ml-0.5 text-[#d80255]">*</span>}</label>
             {field.options ? <div className="relative"><select {...attrs} className={`${control} h-[39px] appearance-none pr-8`}>{field.placeholder && <option value="">{field.placeholder}</option>}{field.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><img src="/assets/figma/department-select-arrow.svg" width="10" height="6" alt="" className="pointer-events-none absolute top-4 right-3.5" /></div> : <input {...attrs} type={field.numeric ? 'number' : 'text'} min={field.numeric ? 1 : undefined} step={field.numeric ? 1 : undefined} inputMode={field.key === 'number' ? 'numeric' : undefined} placeholder={field.placeholder} className={`${control} h-[43px]`} />}
             {error && <p id={`section-${field.key}-error`} className="mt-1.5 text-xs text-[#d80255]">{error}</p>}
-            {field.key === 'lecturerId' && <p className="mt-1.5 text-xs text-[#68728a]">Enter an existing lecturer ID. Eligibility is checked by the server.{section && ` Current: ${section.lectureNameEn || section.lectureNameTh}.`}</p>}
-            {field.options && !field.options.length && <p role="status" className="mt-1.5 text-xs text-[#68728a]">No options available yet. Check lookup loading or retry on the directory.</p>}
+            {field.key === 'lecturerId' && (lecturerError ? <p role="alert" className="mt-1.5 text-xs text-[#d80255]">{lecturerError} <button type="button" onClick={() => { setLecturerError(''); setLecturerAttempt(attempt => attempt + 1) }} className="underline focus-visible:outline-2">Retry</button></p> : lecturers?.length === 0 ? <p role="status" className="mt-1.5 text-xs text-[#68728a]">No active lecturers available.</p> : null)}
+            {field.key !== 'lecturerId' && field.options && !field.options.length && <p role="status" className="mt-1.5 text-xs text-[#68728a]">No options available yet. Check lookup loading or retry on the directory.</p>}
           </div>
         })}
         <fieldset className="min-[400px]:col-span-2"><legend className="mb-2 text-[12.5px] leading-[18.75px] font-semibold">Status</legend><div className="flex gap-4">{(['active', 'closed'] as const).map(status => <label key={status} className="flex items-center gap-2.5 text-[13.5px] font-semibold"><input type="radio" name="status" checked={value.status === status} onChange={() => setValue(previous => ({ ...previous, status }))} className="size-5 appearance-none rounded-full border border-[#e5e8f0] bg-white checked:border-[6px] checked:border-[#273238] focus-visible:outline-2 focus-visible:outline-offset-2" />{status === 'active' ? 'Active' : 'Closed'}</label>)}</div></fieldset>

@@ -41,7 +41,7 @@ export default function CourseActions({ id, onClose, onEdit, onDeleted }: { id: 
         'Academic Year': data.curriculumYear == null ? 'Not assigned' : `Year ${data.curriculumYear}`,
         Type: <span className="inline-block rounded-full px-2.5 py-1 text-[11px] leading-[16.5px] font-semibold" style={courseBadgeStyle(data.courseType)}>{data.courseTypeName}</span>,
         'Max Students': data.maxStudentsPerSection ?? '—',
-        Sections: data.sectionCount,
+        Sections: data.sectionCount ?? 'Not included in course details',
         Status: data.status === 'active' ? 'Active' : 'Inactive',
       }).map(([label, value]) => <div key={label} className="grid grid-cols-[140px_1fr] gap-3 text-sm"><dt className="text-[#68728a]">{label}</dt><dd className="break-words">{value}</dd></div>)}</dl>
       <div className="mt-6 flex justify-end gap-3"><button type="button" className={button} onClick={() => { onClose(); onEdit(data) }}>Edit</button><button type="button" className={`${button} bg-[#273238] text-white`} onClick={() => { setError(''); setConfirm(true) }}>Delete</button></div>

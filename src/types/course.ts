@@ -11,7 +11,7 @@ export interface Course {
   curriculumYear: number | null
   semester: string
   academicYear: string
-  sectionCount: number
+  sectionCount: number | null
   type: 'Required' | 'Elective'
   status: 'active' | 'inactive'
   description?: string

@@ -26,6 +26,6 @@ export function coursesCsv(courses: Course[]) {
   }
   return [
     ['Course Code', 'Course Name', 'Type', 'Credits', 'Department', 'Faculty', 'Semester', 'Academic Year', 'Curriculum Year', 'Sections', 'Status'],
-    ...courses.map(course => [course.code, course.name, course.type, course.credits, course.departmentName, course.facultyName, course.semester, course.academicYear, course.curriculumYear ?? '', course.sectionCount, course.status === 'active' ? 'Active' : 'Inactive']),
+    ...courses.map(course => [course.code, course.name, course.type, course.credits, course.departmentName, course.facultyName, course.semester, course.academicYear, course.curriculumYear ?? '', course.sectionCount ?? '', course.status === 'active' ? 'Active' : 'Inactive']),
   ].map(row => row.map(cell).join(',')).join('\r\n')
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Plus, Upload } from 'lucide-react'
+import { CircleCheck, ClipboardList, Clock3, Download, Plus, Upload, UserMinus } from 'lucide-react'
 import Modal from '../ui/Modal'
 import Pagination from '../ui/Pagination'
 import { getSectionDirectory, type ApiSection } from '../../services/sectionService'
@@ -85,7 +85,10 @@ export default function EnrollmentsContent() {
   return <main className="min-w-0 text-[#17213c]">
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e5e8f0] bg-white px-4 pt-6 pb-5 sm:px-7"><div><h1 className="font-display text-[22px] font-extrabold">Enrollments</h1><p className="mt-1 text-[13px] text-[#68728a]">Manage course enrollments across semesters and academic years.</p></div><div className="flex flex-wrap gap-2"><button disabled aria-describedby="enrollment-limitations" className={`${button} inline-flex items-center gap-2`}><Upload size={15} aria-hidden="true" />Bulk Enroll</button><button disabled={busy || !current?.data?.content.length} onClick={exportRows} className={`${button} inline-flex items-center gap-2`}><Download size={15} aria-hidden="true" />Export</button><button disabled={busy} onClick={() => setEnrolling(true)} className={`${button} inline-flex items-center gap-2 bg-[#273238] text-white`}><Plus size={15} aria-hidden="true" />Enroll Student</button></div></header>
     <div className="px-4 py-5 sm:px-7">
-      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{(['totalEnrollments', 'activeEnrollments', 'pendingEnrollments', 'withdrawnOrDropped'] as const).map((field, index) => <div key={field} className="flex items-center gap-3 rounded-2xl border border-[#e5e8f0] bg-white p-4"><span aria-hidden="true" className={`flex size-10 items-center justify-center rounded-xl text-xl ${['bg-[#f0f1f3]', 'bg-[#d1fae5]', 'bg-[#fef3c7]', 'bg-[#fcecf3]'][index]}`}>{['📋', '✅', '⌛', '❌'][index]}</span><div><dt className="text-xs text-[#68728a]">{['Total Enrollments', 'Active', 'Pending Approval', 'Withdrawn / Dropped'][index]}</dt><dd className="font-display text-[23px] font-extrabold">{summary?.data?.[field] ?? '—'}</dd></div></div>)}</dl>
+      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{(['totalEnrollments', 'activeEnrollments', 'pendingEnrollments', 'withdrawnOrDropped'] as const).map((field, index) => {
+        const Icon = [ClipboardList, CircleCheck, Clock3, UserMinus][index]
+        return <div key={field} className="flex items-center gap-3 rounded-2xl border border-[#e5e8f0] bg-white p-4"><span aria-hidden="true" className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${['bg-[#f0f1f3] text-[#273238]', 'bg-[#d1fae5] text-[#059669]', 'bg-[#fef3c7] text-[#d97706]', 'bg-[#fcecf3] text-[#d80255]'][index]}`}><Icon size={22} strokeWidth={1.8} /></span><div><dt className="text-xs text-[#68728a]">{['Total Enrollments', 'Active', 'Pending Approval', 'Withdrawn / Dropped'][index]}</dt><dd className="font-display text-[23px] font-extrabold">{summary?.data?.[field] ?? '—'}</dd></div></div>
+      })}</dl>
       {(summary?.error || lookupError) && <p role="alert" className="mt-4 text-sm text-red-700">{summary?.error} {lookupError} <button onClick={refresh} className="underline">Retry</button></p>}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <input type="search" aria-label="Search enrollments" maxLength={255} placeholder="Search student ID, name or course…" value={filters.search} onChange={e => update('search', e.target.value)} className={control} />

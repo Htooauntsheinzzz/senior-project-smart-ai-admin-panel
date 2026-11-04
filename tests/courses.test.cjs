@@ -26,6 +26,23 @@ const row = { id: 7, courseCode: 'CSC404', courseName: 'Web Development', credit
 
 const filters = { query: ' web ', facultyId: '2', departmentId: '2', programId: '8', year: '4', term: '5', status: 'inactive' }
 
+test('course details accept the detail DTO without list-only sectionCount and preserve edit fields', async () => {
+  const h = harness(), s = h.load('src/services/courseService.ts')
+  const detail = { ...row }
+  delete detail.sectionCount
+  h.respond(async () => ({ data: detail }))
+  const course = await s.getCourseById('7')
+  assert.equal(course.sectionCount, null)
+  assert.equal(course.description, row.description)
+  assert.equal(course.prerequisiteCourses, row.prerequisiteCourses)
+  assert.equal(course.maxStudentsPerSection, 45)
+  assert.equal(course.status, 'inactive')
+  assert.equal(course.courseType, 300)
+  assert.throws(() => s.mapCourse(detail), /Unexpected course response/)
+  h.respond(async () => ({ data: { ...detail, sectionCount: -1 } }))
+  await assert.rejects(s.getCourseById('7'), /Unexpected course response/)
+})
+
 test('payload maps UI fields to API fields and preserves false', () => {
   const h = harness(), s = h.load('src/services/courseService.ts'), u = h.load('src/utils/courseApi.ts')
   assert.deepEqual(s.coursePayload(draft), { courseCode: 'CSC404', courseName: 'Web Development', creditHours: 3, description: 'testing', facultyId: 2, departmentId: 2, programId: 8, semesterId: 5, recommendedAcademicYear: 4, prerequisiteCourses: 'CSC201', courseType: 300, maximumStudentsPerSection: 45, isActive: false })
