@@ -10,6 +10,7 @@ export default function FacultiesPage() {
   const [params, setParams] = useSearchParams()
   const adding = params.get('add') === '1'
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [editing, setEditing] = useState(false)
   function setAdding(open) {
     setParams(previous => { const next = new URLSearchParams(previous); if (open) next.set('add', '1'); else next.delete('add'); return next }, { replace: true })
   }
@@ -20,5 +21,5 @@ export default function FacultiesPage() {
       // AuthProvider clears the local session even if server logout fails.
     } finally { setIsLoggingOut(false); navigate('/login', { replace: true }) }
   }
-  return <div className={adding ? 'xl:pr-[460px]' : undefined}><AdminLayout onLogout={handleLogout} isLoggingOut={isLoggingOut} email={user?.email}><FacultiesContent adding={adding} onOpen={() => setAdding(true)} onClose={() => setAdding(false)} /></AdminLayout></div>
+  return <div className={adding || editing ? 'xl:pr-[460px]' : undefined}><AdminLayout onLogout={handleLogout} isLoggingOut={isLoggingOut} email={user?.email}><FacultiesContent adding={adding} onOpen={() => { if (!editing) setAdding(true) }} onClose={() => setAdding(false)} onEditing={setEditing} /></AdminLayout></div>
 }

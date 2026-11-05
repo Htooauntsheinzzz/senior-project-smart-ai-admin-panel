@@ -1,11 +1,11 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Faculty } from '../../types/faculty'
 import { filterFaculties } from '../../utils/faculties'
-import { loadDemoFacultyOptions } from '../../services/departmentDemo'
+import { getActiveFacultyOptions } from '../../services/facultyService'
 
-type Props = { value: string; selectedFaculty?: Faculty; onChange: (faculty: Faculty) => void; error?: string; disabled?: boolean; loadOptions?: () => Promise<Faculty[]> }
+type Props = { value: string; selectedFaculty?: Pick<Faculty, 'id' | 'nameEn'>; onChange: (faculty: Faculty) => void; error?: string; disabled?: boolean; loadOptions?: () => Promise<Faculty[]> }
 
-export default function SearchableFacultySelect({ value, selectedFaculty, onChange, error, disabled, loadOptions = loadDemoFacultyOptions }: Props) {
+export default function SearchableFacultySelect({ value, selectedFaculty, onChange, error, disabled, loadOptions = getActiveFacultyOptions }: Props) {
   const id = useId()
   const listId = `${id}-list`
   const [open, setOpen] = useState(false)

@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ChevronDown, Download, Search, UserPlus, X } from 'lucide-react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { accountStatusLabels, accountStatuses, adminRoles, type AdminUser } from '../../types/adminUser'
 import { adminUsersCsv } from '../../utils/adminUsers'
 import { apiErrorMessage } from '../../utils/apiError'
-import { deleteUser, getUserById, getUsers, type AdminUserPage, type AdminUserSummary } from '../../services/userService'
-import { getDepartments, type DepartmentOption } from '../../services/departmentService'
+import { deleteUser, getUserById, getUsers, isValidUserId, type AdminUserPage, type AdminUserSummary } from '../../services/userService'
 import AdminUsersTable from './AdminUsersTable'
 import Modal from '../ui/Modal'
 import { Panel } from '../dashboard/DashboardUi'
 
 const PAGE_SIZE = 8
 
-function toRow(user: AdminUserSummary, departments: DepartmentOption[]): AdminUser {
+function toRow(user: AdminUserSummary): AdminUser {
   const primaryRole = user.roles.find(role => role.isActive !== false) ?? user.roles[0]
   return {
     id: user.id,
@@ -21,7 +20,7 @@ function toRow(user: AdminUserSummary, departments: DepartmentOption[]): AdminUs
     email: user.email,
     phoneNumber: user.phoneNumber ?? '',
     departmentId: user.departmentId,
-    department: departments.find(department => department.id === user.departmentId)?.departmentName ?? '—',
+    department: user.departmentId == null ? '—' : `Department ID ${user.departmentId}`,
     roleId: primaryRole?.id ?? null,
     role: primaryRole?.roleName ?? '—',
     status: accountStatusLabels[user.accountStatus] ?? user.accountStatus,
@@ -32,22 +31,30 @@ function toRow(user: AdminUserSummary, departments: DepartmentOption[]): AdminUs
 }
 
 export default function AdminUsersContent() {
+  const { id } = useParams()
+  return <AdminUsersScreen key={id ?? 'list'} id={id} />
+}
+
+function AdminUsersScreen({ id }: { id?: string }) {
   const [tab, setTab] = useState<'admins' | 'roles'>('admins')
   const navigate = useNavigate()
   const location = useLocation()
   const [pageData, setPageData] = useState<AdminUserPage | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [fetching, setLoading] = useState(true)
+  const [loadedQuery, setLoadedQuery] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('')
   const [status, setStatus] = useState('')
   const [department, setDepartment] = useState('')
   const [page, setPage] = useState(1)
-  const [departments, setDepartments] = useState<DepartmentOption[]>([])
-  const [detailsId, setDetailsId] = useState<number | null>(null)
+  const [listError, setListError] = useState('')
+  const [detailAttempt, setDetailAttempt] = useState(0)
+  const deleteLock = useRef(false)
+  const [detailsId, setDetailsId] = useState<number | null>(() => isValidUserId(id) ? Number(id) : null)
   const [details, setDetails] = useState<AdminUser | null>(null)
-  const [detailsLoading, setDetailsLoading] = useState(false)
-  const [detailsError, setDetailsError] = useState('')
+  const [detailsLoading, setDetailsLoading] = useState(isValidUserId(id))
+  const [detailsError, setDetailsError] = useState(id != null && !isValidUserId(id) ? 'User not found.' : '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -58,18 +65,15 @@ export default function AdminUsersContent() {
     if (location.state) navigate(location.pathname, { replace: true, state: null })
   }, [location, navigate])
 
-  useEffect(() => {
-    let cancelled = false
-    getDepartments({ size: 100, status: 'ACTIVE', sort: 'departmentName,asc' })
-      .then(data => { if (!cancelled) setDepartments(data.content ?? []) })
-      .catch(() => { if (!cancelled) setMessage('Unable to load departments. The department filter and names may be incomplete.') })
-    return () => { cancelled = true }
-  }, [])
+  const requestKey = JSON.stringify([query, role, status, department, page, refreshKey])
+  const loading = fetching || loadedQuery !== requestKey
 
   useEffect(() => {
     let cancelled = false
     const handle = window.setTimeout(async () => {
       setLoading(true)
+      setPageData(null)
+      setListError('')
       try {
         const data = await getUsers({
           page: page - 1,
@@ -79,25 +83,28 @@ export default function AdminUsersContent() {
           roleId: role ? Number(role) : undefined,
           departmentId: department ? Number(department) : undefined,
         })
-        if (!cancelled) setPageData(data)
+        if (!cancelled) {
+          if (page > Math.max(1, data.totalPages)) setPage(Math.max(1, data.totalPages))
+          else setPageData(data)
+        }
       } catch (error) {
-        if (!cancelled) setMessage(apiErrorMessage(error, 'Unable to load admin users. Please try again.'))
+        if (!cancelled) setListError(apiErrorMessage(error, 'Unable to load admin users. Please try again.'))
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) { setLoading(false); setLoadedQuery(requestKey) }
       }
     }, 300)
     return () => { cancelled = true; window.clearTimeout(handle) }
-  }, [query, role, status, department, page, refreshKey])
+  }, [query, role, status, department, page, refreshKey, requestKey])
 
   useEffect(() => {
     if (detailsId == null) return
     let cancelled = false
     getUserById(detailsId)
-      .then(user => { if (!cancelled) setDetails(toRow(user, departments)) })
+      .then(user => { if (!cancelled) setDetails(toRow(user)) })
       .catch(error => { if (!cancelled) setDetailsError(apiErrorMessage(error, 'Unable to load the admin user. Please try again.')) })
       .finally(() => { if (!cancelled) setDetailsLoading(false) })
     return () => { cancelled = true }
-  }, [detailsId, departments])
+  }, [detailsId, detailAttempt])
 
   function openDetails(id: number) {
     setDetails(null)
@@ -106,8 +113,9 @@ export default function AdminUsersContent() {
     setDetailsId(id)
   }
 
-  const visible = useMemo(() => (pageData?.content ?? []).map(user => toRow(user, departments)), [pageData, departments])
-  const total = pageData?.totalElements ?? 0
+  const visible = useMemo(() => loading ? [] : (pageData?.content ?? []).map(toRow), [pageData, loading])
+  const departmentIds = [...new Set([...(pageData?.content ?? []).flatMap(user => user.departmentId == null ? [] : [String(user.departmentId)]), ...(department ? [department] : [])])]
+  const total = loading ? 0 : pageData?.totalElements ?? 0
   const pageCount = Math.max(1, pageData?.totalPages ?? 1)
   const currentPage = Math.min(page, pageCount)
   const activeCount = visible.filter(user => user.accountStatus === 'ACTIVE').length
@@ -122,23 +130,28 @@ export default function AdminUsersContent() {
     setMessage(`Exported ${visible.length} displayed admin users to admin-users.csv.`)
   }
   function closeDetails() {
+    if (deleteLock.current) return
     setDetailsId(null)
     setDetails(null)
     setConfirmDelete(false)
     setDeleteError('')
+    if (id != null) navigate('/admin/users')
   }
   async function confirmDeleteUser() {
-    if (deleting || detailsId == null) return
+    if (deleteLock.current || detailsId == null) return
+    deleteLock.current = true
     setDeleting(true)
     setDeleteError('')
     try {
       await deleteUser(detailsId)
+      deleteLock.current = false
       closeDetails()
       setRefreshKey(key => key + 1)
       setMessage('Admin user deleted successfully.')
     } catch (error) {
       setDeleteError(apiErrorMessage(error, 'Unable to complete the request. Please try again.'))
     } finally {
+      deleteLock.current = false
       setDeleting(false)
     }
   }
@@ -153,7 +166,7 @@ export default function AdminUsersContent() {
   const filters: { label: string; value: string; options: readonly { value: string; label: string }[]; set: (value: string) => void; width: string }[] = [
     { label: 'All Roles', value: role, options: adminRoles.map(item => ({ value: String(item.id), label: item.name })), set: setRole, width: 'sm:w-[155px]' },
     { label: 'All Status', value: status, options: accountStatuses, set: setStatus, width: 'sm:w-[104px]' },
-    { label: 'All Departments', value: department, options: departments.map(item => ({ value: String(item.id), label: item.departmentName })), set: setDepartment, width: 'sm:w-[170px]' },
+    { label: 'All Departments', value: department, options: departmentIds.map(value => ({ value, label: `Department ID ${value}` })), set: setDepartment, width: 'sm:w-[170px]' },
   ]
   return <main className="min-w-0 px-4 pt-6 pb-4 sm:px-7" id="admin-users-content">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="font-display text-[22px] leading-[33px] font-bold tracking-[-0.55px] text-[#17213c]">Admin Users</h1><p className="mt-1 text-[13px] leading-5 text-[#68728a]">Manage staff accounts and administrative access.</p></div>{tab === 'admins' && <div className="flex gap-2.5"><button type="button" onClick={exportUsers} disabled={!visible.length} className={`${action} border border-[#e5e8f0] text-[#17213c] hover:bg-white`}><Download size={15} />Export</button><button type="button" onClick={() => navigate('/admin/users/new')} className={`${action} bg-[#273238] text-white shadow-[0_4px_10px_#27323833] hover:bg-[#1a2329]`}><UserPlus size={15} />Add Admin User</button></div>}</div>
@@ -163,10 +176,11 @@ export default function AdminUsersContent() {
         <div className="relative min-w-48 flex-1"><Search size={15} aria-hidden="true" className="pointer-events-none absolute top-3 left-4 text-[#9ca3af]" /><input type="search" aria-label="Search admin users" placeholder="Search by name, email, or employee ID..." value={query} onChange={event => { setQuery(event.target.value); setPage(1) }} className="h-10 w-full rounded-xl border border-[#e5e8f0] bg-[#f7f8fc] pr-3 pl-10 text-xs text-[#17213c] placeholder:text-[#8992a6] focus-visible:outline-2 focus-visible:outline-[#68728a]" /></div>
         {filters.map(filter => <div key={filter.label} className={`relative min-w-0 grow sm:grow-0 ${filter.width}`}><select aria-label={filter.label} value={filter.value} onChange={event => { filter.set(event.target.value); setPage(1) }} className="h-10 w-full appearance-none rounded-xl border border-[#e5e8f0] bg-white pr-8 pl-3 text-xs text-[#68728a] focus-visible:outline-2"><option value="">{filter.label}</option>{filter.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><ChevronDown size={12} aria-hidden="true" className="pointer-events-none absolute top-3.5 right-3 text-[#9ca3af]" /></div>)}
       </div>
-      <AdminUsersTable users={visible} total={total} activeCount={activeCount} inactiveCount={visible.length - activeCount} loading={loading} page={currentPage} pageCount={pageCount} onPage={setPage} onDetails={user => openDetails(user.id)} />
+      <AdminUsersTable users={visible} total={total} activeCount={activeCount} inactiveCount={visible.filter(user => user.accountStatus === 'INACTIVE').length} loading={loading} error={loading ? '' : listError} onRetry={() => setRefreshKey(key => key + 1)} page={currentPage} pageCount={pageCount} onPage={setPage} onDetails={user => openDetails(user.id)} />
+      <p className="text-xs leading-5 text-[#68728a]">Status counts describe the displayed page. Department names and a complete department lookup are not provided by the current API; the filter uses department IDs returned on this page.</p>
     </div>}
-    {detailsId != null && <Modal title="Admin User Details" onClose={closeDetails}>
-      {detailsLoading ? <p className="text-sm text-[#68728a]">Loading user…</p> : detailsError ? <p className="text-sm text-[#68728a]">{detailsError}</p> : details && <>
+    {(detailsId != null || id != null) && <Modal title="Admin User Details" onClose={closeDetails}>
+      {detailsLoading ? <p role="status" className="text-sm text-[#68728a]">Loading user…</p> : detailsError ? <div role="alert" className="text-sm text-[#68728a]">{detailsError}{detailsId != null && <button type="button" onClick={() => { setDetailsLoading(true); setDetailsError(''); setDetailAttempt(previous => previous + 1) }} className={`${action} mt-3 border border-[#e5e8f0]`}>Retry</button>}</div> : details && <>
         <dl className="space-y-3">{Object.entries({ Name: details.name, 'Employee ID': details.employeeId, Email: details.email, 'Phone Number': details.phoneNumber || '—', Department: details.department, Role: details.role, Status: details.status, 'Last Login': details.lastLogin, 'Created At': details.createdAt }).map(([label, value]) => <div key={label} className="grid grid-cols-[100px_1fr] gap-3 text-xs leading-5"><dt className="text-[#68728a]">{label}</dt><dd className="break-words">{value}</dd></div>)}</dl>
         <div className="mt-6 flex flex-wrap justify-end gap-3">
           <button type="button" onClick={() => navigate(`/admin/users/${detailsId}/edit`)} className={`${action} border border-[#e5e8f0] text-[#17213c] hover:bg-white`}>Edit</button>

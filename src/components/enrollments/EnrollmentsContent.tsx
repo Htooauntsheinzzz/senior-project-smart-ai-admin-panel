@@ -1,70 +1,122 @@
 import { useEffect, useRef, useState } from 'react'
-import { initialEnrollments, type Enrollment } from '../../data/enrollments'
-import { emptyEnrollmentFilters, enrollmentTotals, enrollmentsCsv, filterEnrollments, type EnrollmentFilters } from '../../utils/enrollments'
+import { CircleCheck, ClipboardList, Clock3, Download, Plus, Upload, UserMinus } from 'lucide-react'
 import Modal from '../ui/Modal'
-import EnrollStudentModal from './EnrollStudentModal'
+import Pagination from '../ui/Pagination'
+import { getSectionDirectory, type ApiSection } from '../../services/sectionService'
+import { getSemesters, type Semester } from '../../services/courseService'
+import { allowedEnrollmentStatuses, deleteEnrollment, emptyEnrollmentQuery, enrollmentCsv, enrollmentError, enrollmentStatuses, getEnrollment, getEnrollmentExport, getEnrollments, getEnrollmentSummary, setEnrollmentStatus, type EnrollmentDetail, type EnrollmentPage, type EnrollmentQuery, type EnrollmentStatus, type EnrollmentSummary } from '../../services/enrollmentService'
+import EnrollmentApiForm from './EnrollmentApiForm'
+import EnrollmentRecordPicker, { enrollmentButton as button, enrollmentControl as control, type EnrollmentChoice } from './EnrollmentRecordPicker'
 
 export default function EnrollmentsContent() {
-  const [enrollments, setEnrollments] = useState(initialEnrollments)
-  const [enrolling, setEnrolling] = useState(false)
-  const [filters, setFilters] = useState({ ...emptyEnrollmentFilters })
+  const [filters, setFilters] = useState({ ...emptyEnrollmentQuery })
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [dialog, setDialog] = useState<{ title: string; text: string } | null>(null)
+  const [version, setVersion] = useState(0)
+  const [result, setResult] = useState<{ key: string; data?: EnrollmentPage; error?: string }>()
+  const [totals, setTotals] = useState<{ version: number; data?: EnrollmentSummary; error?: string }>()
+  const [lookup, setLookup] = useState<{ sections: ApiSection[]; semesters: Semester[] }>()
+  const [lookupError, setLookupError] = useState('')
+  const [studentFilter, setStudentFilter] = useState<EnrollmentChoice>()
+  const [pickingStudent, setPickingStudent] = useState(false)
+  const [enrolling, setEnrolling] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [detail, setDetail] = useState<EnrollmentDetail>()
+  const [mode, setMode] = useState<'detail' | 'status' | 'delete'>('detail')
+  const [targetStatus, setTargetStatus] = useState<EnrollmentStatus>('ACTIVE')
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const lock = useRef(false)
   const [message, setMessage] = useState('')
-  const selectAll = useRef<HTMLInputElement>(null)
-  const filtered = filterEnrollments(enrollments, filters)
-  const pages = Math.max(1, Math.ceil(filtered.length / 10))
-  const visible = filtered.slice((page - 1) * 10, page * 10)
-  const checked = visible.filter(row => selected.has(row.id)).length
-  useEffect(() => { if (selectAll.current) selectAll.current.indeterminate = checked > 0 && checked < visible.length }, [checked, visible.length])
-  function update(key: keyof EnrollmentFilters, value: string) {
-    setFilters(previous => ({ ...previous, [key]: value, ...(key === 'course' ? { section: '' } : {}) })); setPage(1); setSelected(new Set()); setMessage('')
+  const [actionError, setActionError] = useState('')
+  const allCheckbox = useRef<HTMLInputElement>(null)
+  const key = JSON.stringify({ filters, page, version })
+  const current = result?.key === key ? result : undefined
+  const summary = totals?.version === version ? totals : undefined
+  const rows = current?.data?.content ?? []
+  const checked = rows.filter(row => selected.has(row.id)).length
+  useEffect(() => { if (allCheckbox.current) allCheckbox.current.indeterminate = checked > 0 && checked < rows.length }, [checked, rows.length])
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      getEnrollments(filters, page - 1, 10, controller.signal).then(data => {
+        if (controller.signal.aborted) return
+        if (page > Math.max(1, data.totalPages)) { setPage(Math.max(1, data.totalPages)); return }
+        setResult({ key, data })
+      }).catch(e => { if (!controller.signal.aborted) setResult({ key, error: enrollmentError(e) }) })
+    }, 250)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [key, filters, page])
+  useEffect(() => {
+    const controller = new AbortController()
+    getEnrollmentSummary(controller.signal).then(data => { if (!controller.signal.aborted) setTotals({ version, data }) }).catch(e => { if (!controller.signal.aborted) setTotals({ version, error: enrollmentError(e) }) })
+    Promise.all([getSectionDirectory({ query: '', courseId: '', semester: '', academicYear: '', lecturerId: '', status: '' }, controller.signal), getSemesters(controller.signal)]).then(([sections, semesters]) => { if (!controller.signal.aborted) { setLookup({ sections, semesters }); setLookupError('') } }).catch(() => { if (!controller.signal.aborted) { setLookup(undefined); setLookupError('Course/section/semester filter choices could not be loaded completely. Search and enrollment forms remain available.') } })
+    return () => controller.abort()
+  }, [version])
+  function update(field: keyof EnrollmentQuery, value: string) {
+    setFilters(previous => ({ ...previous, [field]: value, ...(field === 'courseId' || field === 'semesterId' ? { courseSectionId: '' } : {}) })); setPage(1); setSelected(new Set())
   }
-  function toggle(row: Enrollment) { setSelected(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next }) }
-  function exportRows() {
-    const rows = selected.size ? filtered.filter(row => selected.has(row.id)) : filtered
-    const url = URL.createObjectURL(new Blob([enrollmentsCsv(rows)], { type: 'text/csv;charset=utf-8;' }))
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'enrollments.csv'; anchor.click(); URL.revokeObjectURL(url)
-    setMessage(`Exported ${rows.length} ${selected.size ? 'selected' : 'filtered'} enrollments.`)
+  function refresh() { setSelected(new Set()); setVersion(v => v + 1) }
+  function saved() { setEnrolling(false); setEditing(false); setDetail(undefined); setMessage('Enrollment saved. Refreshing server records and totals.'); refresh() }
+  async function openDetail(id: number) {
+    if (lock.current) return
+    lock.current = true; setBusy(true); setActionError('')
+    try { const row = await getEnrollment(String(id)); setDetail(row); setTargetStatus(row.status); setMode('detail') } catch (e) { setMessage(enrollmentError(e)) } finally { lock.current = false; setBusy(false) }
   }
-  const button = 'inline-flex items-center justify-center gap-2 rounded-xl border-[1.25px] border-[#e5e8f0] bg-white px-4 py-2 text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50'
-  const totals = enrollmentTotals(enrollments)
-  const dropdowns: { key: Exclude<keyof EnrollmentFilters, 'query'>; label: string; width: string }[] = [
-    { key: 'studentId', label: 'Student', width: 'sm:w-[150px]' }, { key: 'course', label: 'Course', width: 'sm:w-[130px]' }, { key: 'section', label: 'Section', width: 'sm:w-[130px]' },
-    { key: 'semester', label: 'Semester', width: 'sm:w-[130px]' }, { key: 'year', label: 'Academic Year', width: 'sm:w-[142px]' }, { key: 'status', label: 'Status', width: 'sm:w-[130px]' },
-  ]
+  async function mutate() {
+    if (!detail || lock.current) return
+    lock.current = true; setBusy(true); setActionError('')
+    try {
+      if (mode === 'delete') await deleteEnrollment(String(detail.id))
+      else await setEnrollmentStatus(String(detail.id), targetStatus)
+      saved()
+    } catch (e) { setActionError(enrollmentError(e)) } finally { lock.current = false; setBusy(false) }
+  }
+  async function exportRows() {
+    if (lock.current || !current?.data) return
+    lock.current = true; setBusy(true); setMessage('Preparing export…')
+    try {
+      const exported = selected.size ? rows.filter(row => selected.has(row.id)) : await getEnrollmentExport(filters)
+      const url = URL.createObjectURL(new Blob(['\ufeff', enrollmentCsv(exported)], { type: 'text/csv;charset=utf-8;' }))
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'enrollments.csv'; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setMessage(`Exported ${exported.length} ${selected.size ? 'selected rows from this page' : 'filtered enrollments'}.`)
+    } catch (e) { setMessage(e instanceof Error && !('response' in e) ? e.message : enrollmentError(e)) } finally { lock.current = false; setBusy(false) }
+  }
+  const courses = [...new Map(lookup?.sections.map(s => [s.courseId, { id: s.courseId, label: `${s.courseCode} — ${s.courseName}` }])).values()]
   return <main className="min-w-0 text-[#17213c]">
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b-[1.25px] border-[#e5e8f0] bg-white px-4 pt-6 pb-5 sm:px-7"><div><h1 className="font-display text-[22px] leading-[33px] font-extrabold">Enrollments</h1><p className="mt-1 text-[13px] leading-[19.5px] text-[#68728a]">Manage course enrollments across semesters and academic years.</p></div><div className="flex flex-wrap gap-2.5">
-      <button type="button" className={button} onClick={() => setDialog({ title: 'Bulk Enroll', text: 'Bulk enrollment is not available right now. An import format and enrollment service have not been supplied.' })}><img src="/assets/figma/course-upload.svg" width="16" height="16" alt="" />Bulk Enroll</button>
-      <button type="button" className={button} disabled={!filtered.length} onClick={exportRows}><img src="/assets/figma/course-download.svg" width="16" height="16" alt="" />Export</button>
-      <button type="button" className={`${button} border-transparent bg-linear-[165deg,#273238,#1a2329] text-white shadow-md`} onClick={() => setEnrolling(true)}><img src="/assets/figma/faculty-plus.svg" width="16" height="16" alt="" />Enroll Student</button>
-    </div></header>
-    <div className="grid grid-cols-1 gap-4 px-4 pt-5 sm:grid-cols-2 sm:px-7 xl:grid-cols-4">{[
-      ['📋', 'Total Enrollments', '#273238', '#27323812'], ['✅', 'Active', '#059669', '#d1fae5'], ['⌛', 'Pending Approval', '#d97706', '#fef3c7'], ['❌', 'Withdrawn / Dropped', '#d80255', '#fcecf3'],
-    ].map(([icon, label, color, background], index) => <div key={label} className="flex items-center gap-3.5 rounded-2xl border-[1.25px] border-[#e5e8f0] bg-white px-4 py-3.5"><span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl text-xl" style={{ background }}>{icon}</span><div><p className="font-display text-[23px] leading-6 font-extrabold" style={{ color }}>{totals[index]}</p><p className="mt-1 text-[11px] text-[#68728a]">{label}</p></div></div>)}</div>
-    <div className="flex flex-wrap items-center gap-3 px-4 pt-5 pb-3 sm:px-7"><div className="relative min-w-[220px] flex-1"><img src="/assets/figma/faculty-search.svg" width="16" height="16" alt="" className="pointer-events-none absolute top-3.5 left-3.5" /><input type="search" aria-label="Search enrollments" placeholder="Search by student ID, name or course..." value={filters.query} onChange={event => update('query', event.target.value)} className="h-[42px] w-full rounded-xl border-[1.25px] border-[#e5e8f0] bg-white pr-3.5 pl-10 text-[13px] placeholder:text-[#68728a]/75 focus-visible:outline-2" /></div>{dropdowns.map(({ key, label, width }) => {
-      const options = [...new Set(enrollments.filter(row => key !== 'section' || !filters.course || row.course === filters.course).map(row => row[key]))]
-      return <div key={key} className={`relative w-full ${width}`}><select aria-label={label} value={filters[key]} onChange={event => update(key, event.target.value)} className="h-[39px] w-full appearance-none rounded-xl border-[1.25px] border-[#e5e8f0] bg-white pr-8 pl-4 text-[13px] text-[#68728a] focus-visible:outline-2"><option value="">{label}</option>{options.map(option => <option key={option} value={option}>{key === 'studentId' ? `${option} — ${initialEnrollments.find(row => row.studentId === option)?.name}` : option}</option>)}</select><img src="/assets/figma/department-filter-arrow.svg" width="10" height="6" alt="" className="pointer-events-none absolute top-4 right-3.5" /></div>
-    })}</div>
-    <div className="px-4 pb-6 sm:px-7">
-      {selected.size > 0 && <div role="status" className="mb-3 flex items-center gap-4 text-sm text-[#68728a]">{selected.size} selected — Export uses selected rows.<button type="button" onClick={() => setSelected(new Set())} className="rounded font-semibold underline focus-visible:outline-2">Clear selection</button></div>}
-      <div className="overflow-hidden rounded-2xl border-[1.25px] border-[#e5e8f0] bg-white"><div role="region" aria-label="Enrollments table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2"><table className="w-full min-w-[1380px] table-fixed text-left text-[13px] leading-[19.5px]"><caption className="sr-only">Student course enrollments</caption><colgroup>{[3, 12, 19, 17, 9, 12, 8, 10, 6].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup><thead className="bg-[#fafbfc] text-[#68728a]"><tr><th className="px-4 py-3.5"><input ref={selectAll} type="checkbox" aria-label="Select all enrollments on this page" checked={visible.length > 0 && checked === visible.length} disabled={!visible.length} onChange={event => { const all = event.target.checked; setSelected(previous => { const next = new Set(previous); visible.forEach(row => { if (all) next.add(row.id); else next.delete(row.id) }); return next }) }} className="size-4 accent-[#273238]" /></th>{['Student ID', 'Student Name', 'Course', 'Section', 'Enrollment Date', 'Semester', 'Status', 'Actions'].map(label => <th key={label} scope="col" className="px-4 py-3.5 font-semibold">{label}</th>)}</tr></thead><tbody>{visible.map(row => <tr key={row.id} className="border-t-[1.25px] border-[#e5e8f0]">
-        <td className="px-4 py-3.5"><input type="checkbox" aria-label={`Select ${row.name}, ${row.course}, ${row.section}`} checked={selected.has(row.id)} onChange={() => toggle(row)} className="size-4 accent-[#273238]" /></td>
-        <td className="px-4 py-3.5"><span className="whitespace-nowrap rounded-lg bg-[#273238]/6 px-2 py-1 font-mono text-xs font-bold text-[#273238]">{row.studentId}</span></td>
-        <th scope="row" className="px-4 py-3.5 font-semibold"><div className="flex items-center gap-2.5"><span aria-hidden="true" className="flex size-[30px] shrink-0 items-center justify-center rounded-full text-[10px] text-white" style={{ background: row.color }}>{row.name.split(' ').slice(0, 2).map(part => part[0]).join('')}</span>{row.name}</div></th>
-        <td className="px-4 py-3.5"><span className="font-bold text-[#273238]">{row.course}</span><span title={row.courseName} className="mt-1 block truncate text-[11.5px] leading-[17.25px] text-[#68728a]">{row.courseName}</span></td>
-        <td className="px-4 py-3.5"><span className="rounded-lg bg-[#ede9fe] px-2 py-1 text-xs font-semibold text-[#7c3aed]">{row.section}</span></td><td className="px-4 py-3.5 text-[#68728a]">{row.date}</td>
-        <td className="px-4 py-3.5"><span className="font-semibold">{row.semester}</span><span className="block text-[11.5px] text-[#68728a]">{row.year}</span></td>
-        <td className="px-4 py-3.5"><span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${row.status === 'Active' ? 'bg-[#d1fae5] text-[#059669]' : row.status === 'Pending' ? 'bg-[#fef3c7] text-[#d97706]' : 'bg-[#fcecf3] text-[#d80255]'}`}><span aria-hidden="true" className="size-1.5 rounded-full bg-current" />{row.status}</span></td>
-        <td className="px-4 py-3.5"><button type="button" aria-label={`Actions for ${row.name}, ${row.course}`} onClick={() => setDialog({ title: `${row.name} — ${row.course}`, text: 'Enrollment actions are not available right now. Approval, withdrawal, and other record changes have not been integrated.' })} className="flex size-8 items-center justify-center rounded-lg hover:bg-[#f7f8fc] focus-visible:outline-2"><img src="/assets/figma/faculty-dots.svg" width="18" height="18" alt="" /></button></td>
-      </tr>)}</tbody></table></div>{!filtered.length && <div className="py-12 text-center text-sm text-[#68728a]"><p role="status">No enrollments match your search and filters.</p><button type="button" className={`${button} mt-4`} onClick={() => { setFilters({ ...emptyEnrollmentFilters }); setPage(1) }}>Clear filters</button></div>}</div>
-      <div className="flex flex-wrap items-center justify-between gap-4 pt-4 text-[13px] text-[#68728a]"><p role="status">Showing <strong className="text-[#17213c]">{filtered.length ? (page - 1) * 10 + 1 : 0}–{Math.min(page * 10, filtered.length)}</strong> of <strong className="text-[#17213c]">{filtered.length}</strong> enrollments</p><nav aria-label="Enrollment pagination" className="flex gap-1.5"><button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => setPage(page - 1)} className={`${button} size-8 px-0`}>‹</button>{Array.from({ length: pages }, (_, index) => index + 1).map(number => <button type="button" key={number} aria-label={`Page ${number}`} aria-current={page === number ? 'page' : undefined} onClick={() => setPage(number)} className={`${button} size-8 px-0 ${page === number ? 'bg-linear-[165deg,#273238,#1a2329] text-white' : ''}`}>{number}</button>)}<button type="button" aria-label="Next page" disabled={page === pages} onClick={() => setPage(page + 1)} className={`${button} size-8 px-0`}>›</button></nav></div>
-      <p className="mt-5 text-xs leading-5 text-[#68728a]">Demo mode: 10 Figma reference records and 10 labeled synthetic records, plus any local additions. Enrollment options use local data; confirmations create Active demo records only and reset when you leave or reload. Summary cards cover all records.</p><p role="status" className="mt-2 text-xs text-[#68728a]">{message}</p>
-    </div>{dialog && <Modal title={dialog.title} onClose={() => setDialog(null)}><p className="text-sm leading-6 text-[#68728a]">{dialog.text}</p></Modal>}
-    {enrolling && <EnrollStudentModal rows={enrollments} onClose={() => setEnrolling(false)} onEnroll={row => {
-      setEnrollments(previous => [row, ...previous]); setEnrolling(false); setPage(1); setSelected(new Set())
-      setMessage(`${row.name} enrolled in ${row.course}, ${row.section} in the local demo.${filterEnrollments([row], filters).length ? '' : ' Your current filters hide this enrollment.'} No server record was created.`)
-    }} />}
+    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e5e8f0] bg-white px-4 pt-6 pb-5 sm:px-7"><div><h1 className="font-display text-[22px] font-extrabold">Enrollments</h1><p className="mt-1 text-[13px] text-[#68728a]">Manage course enrollments across semesters and academic years.</p></div><div className="flex flex-wrap gap-2"><button disabled aria-describedby="enrollment-limitations" className={`${button} inline-flex items-center gap-2`}><Upload size={15} aria-hidden="true" />Bulk Enroll</button><button disabled={busy || !current?.data?.content.length} onClick={exportRows} className={`${button} inline-flex items-center gap-2`}><Download size={15} aria-hidden="true" />Export</button><button disabled={busy} onClick={() => setEnrolling(true)} className={`${button} inline-flex items-center gap-2 bg-[#273238] text-white`}><Plus size={15} aria-hidden="true" />Enroll Student</button></div></header>
+    <div className="px-4 py-5 sm:px-7">
+      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{(['totalEnrollments', 'activeEnrollments', 'pendingEnrollments', 'withdrawnOrDropped'] as const).map((field, index) => {
+        const Icon = [ClipboardList, CircleCheck, Clock3, UserMinus][index]
+        return <div key={field} className="flex items-center gap-3 rounded-2xl border border-[#e5e8f0] bg-white p-4"><span aria-hidden="true" className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${['bg-[#f0f1f3] text-[#273238]', 'bg-[#d1fae5] text-[#059669]', 'bg-[#fef3c7] text-[#d97706]', 'bg-[#fcecf3] text-[#d80255]'][index]}`}><Icon size={22} strokeWidth={1.8} /></span><div><dt className="text-xs text-[#68728a]">{['Total Enrollments', 'Active', 'Pending Approval', 'Withdrawn / Dropped'][index]}</dt><dd className="font-display text-[23px] font-extrabold">{summary?.data?.[field] ?? '—'}</dd></div></div>
+      })}</dl>
+      {(summary?.error || lookupError) && <p role="alert" className="mt-4 text-sm text-red-700">{summary?.error} {lookupError} <button onClick={refresh} className="underline">Retry</button></p>}
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <input type="search" aria-label="Search enrollments" maxLength={255} placeholder="Search student ID, name or course…" value={filters.search} onChange={e => update('search', e.target.value)} className={control} />
+        <button className={`${button} truncate text-left`} onClick={() => setPickingStudent(true)}>{studentFilter?.label || 'All Students — select a student'}</button>
+        <select aria-label="Course" value={filters.courseId} disabled={!lookup} onChange={e => update('courseId', e.target.value)} className={control}><option value="">All Courses</option>{courses.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select>
+        <select aria-label="Section" value={filters.courseSectionId} disabled={!lookup} onChange={e => update('courseSectionId', e.target.value)} className={control}><option value="">All Sections</option>{lookup?.sections.filter(s => (!filters.courseId || s.courseId === filters.courseId) && (!filters.semesterId || s.semesterId === filters.semesterId)).map(s => <option key={s.id} value={s.id}>{s.courseCode} — {s.sectionNumber} · {s.semesterNameEn}</option>)}</select>
+        <select aria-label="Semester" value={filters.semesterId} disabled={!lookup} onChange={e => update('semesterId', e.target.value)} className={control}><option value="">All Semesters</option>{lookup?.semesters.map(s => <option key={s.id} value={s.id}>{s.semesterNameEn}</option>)}</select>
+        <select aria-label="Enrollment status" value={filters.status} onChange={e => update('status', e.target.value)} className={control}><option value="">All Statuses</option>{enrollmentStatuses.map(s => <option key={s}>{s}</option>)}</select>
+        <label className="text-xs text-[#68728a]">Enrollment date<input type="date" value={filters.enrollmentDate} onChange={e => update('enrollmentDate', e.target.value)} className={control} /></label>
+        <button className={button} onClick={() => { setFilters({ ...emptyEnrollmentQuery }); setStudentFilter(undefined); setPage(1); setSelected(new Set()) }}>Clear Filters</button>
+      </div>
+      <p id="enrollment-limitations" className="my-3 text-xs leading-5 text-[#68728a]">Bulk enrollment and academic-year filtering have no existing API. Summary counts cover all records. Pending and Active both reserve seats.</p>
+      {selected.size > 0 && <p role="status" className="my-3 text-sm">{selected.size} selected on this page — Export uses these rows. <button className="underline" onClick={() => setSelected(new Set())}>Clear selection</button></p>}
+      {!current ? <p role="status" className="p-8 text-center">Loading enrollments…</p> : current.error ? <p role="alert" className="p-8 text-center">{current.error} <button className="underline" onClick={refresh}>Retry</button></p> : <>
+        <div className="overflow-hidden rounded-2xl border border-[#e5e8f0] bg-white"><div role="region" aria-label="Enrollments table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2"><table className="w-full min-w-[1150px] text-left text-[13px]"><caption className="sr-only">Student course enrollments</caption><thead className="bg-[#fafbfc] text-[#68728a]"><tr><th className="p-3"><input ref={allCheckbox} type="checkbox" aria-label="Select all enrollments on this page" checked={rows.length > 0 && checked === rows.length} disabled={!rows.length} onChange={e => setSelected(e.target.checked ? new Set(rows.map(r => r.id)) : new Set())} /></th>{['Student ID', 'Student Name', 'Course', 'Section', 'Enrollment Date', 'Semester', 'Status', 'Actions'].map(label => <th key={label} scope="col" className="p-3 font-semibold">{label}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.id} className="border-t border-[#e5e8f0]"><td className="p-3"><input type="checkbox" aria-label={`Select ${row.studentCode}, ${row.courseCode}, ${row.sectionNumber}`} checked={selected.has(row.id)} onChange={() => setSelected(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next })} /></td><td className="p-3 font-mono font-semibold">{row.studentCode}</td><th scope="row" className="p-3 font-semibold">{row.studentName}</th><td className="p-3"><strong>{row.courseCode}</strong><span className="mt-1 block text-xs text-[#68728a]">{row.courseName}</span></td><td className="p-3"><span className="rounded-lg bg-[#ede9fe] px-2 py-1 text-xs text-[#7c3aed]">{row.sectionNumber}</span></td><td className="p-3">{row.enrollmentDate}</td><td className="p-3">{row.semesterNameEn}</td><td className="p-3"><span className={`rounded-full px-2 py-1 text-xs ${row.status === 'ACTIVE' ? 'bg-[#d1fae5] text-[#059669]' : row.status === 'PENDING' ? 'bg-[#fef3c7] text-[#d97706]' : 'bg-[#fcecf3] text-[#d80255]'}`}>{row.status}</span></td><td className="p-3"><button disabled={busy} onClick={() => openDetail(row.id)} className="rounded p-2 underline focus-visible:outline-2">Details</button></td></tr>)}</tbody></table></div>{!rows.length && <p role="status" className="p-10 text-center text-sm">No enrollments match these filters.</p>}</div>
+        <Pagination label="Enrollment pagination" page={page} pageCount={Math.max(1, current.data?.totalPages ?? 1)} onPage={value => { setPage(value); setSelected(new Set()) }} summary={`Showing ${rows.length ? (page - 1) * 10 + 1 : 0}–${rows.length ? (page - 1) * 10 + rows.length : 0} of ${current.data?.totalElements ?? 0} enrollments`} />
+      </>}
+      <p role="status" className="mt-4 text-sm">{message}</p>
+    </div>
+    {pickingStudent && <Modal title="Filter by Student" onClose={() => setPickingStudent(false)}><EnrollmentRecordPicker kind="student" value={studentFilter} onChange={choice => { setStudentFilter(choice); update('studentId', choice.id); setPickingStudent(false) }} /><button className={`${button} mt-4`} onClick={() => { setStudentFilter(undefined); update('studentId', ''); setPickingStudent(false) }}>All Students</button></Modal>}
+    {(enrolling || editing) && <EnrollmentApiForm enrollment={editing ? detail : undefined} onClose={() => { setEnrolling(false); setEditing(false) }} onSaved={saved} />}
+    {detail && !editing && <Modal title={mode === 'delete' ? 'Delete Enrollment' : mode === 'status' ? 'Change Enrollment Status' : 'Enrollment Details'} onClose={() => { if (!lock.current) setDetail(undefined) }}>
+      {mode === 'detail' ? <><dl className="space-y-3 text-sm">{Object.entries({ Student: `${detail.studentCode} — ${detail.studentName}`, Email: detail.universityEmail, Course: `${detail.courseCode} — ${detail.courseName}`, Section: detail.sectionNumber, Semester: detail.semesterNameEn, Lecturer: detail.lectureNameEn, Room: detail.room, Schedule: detail.schedule, 'Seat usage': `${detail.enrolledCount}/${detail.capacity}${detail.isFull ? ' (full)' : ''}`, 'Enrollment Date': detail.enrollmentDate, Status: detail.status }).map(([label, value]) => <div key={label}><dt className="text-xs text-[#68728a]">{label}</dt><dd className="break-words">{value ?? '—'}</dd></div>)}</dl><div className="mt-5 flex flex-wrap gap-2"><button className={button} onClick={() => setEditing(true)}>Edit</button><button className={button} disabled={allowedEnrollmentStatuses(detail.status).length === 1} onClick={() => { setTargetStatus(detail.status); setMode('status') }}>Change Status</button><button className={button} onClick={() => setMode('delete')}>Delete</button></div></> : <>
+        <p className="mb-4 text-sm">{mode === 'delete' ? `Delete ${detail.studentCode}'s enrollment in ${detail.courseCode}, section ${detail.sectionNumber}? This soft-deletes the record and releases any reserved seat. The same student/section pair cannot be recreated.` : `${detail.studentCode} — ${detail.courseCode}. Withdrawn and Dropped are terminal states.`}</p>
+        {mode === 'status' && <label className="block text-xs">New status<select disabled={busy} value={targetStatus} onChange={e => setTargetStatus(e.target.value as EnrollmentStatus)} className={control}>{allowedEnrollmentStatuses(detail.status).map(s => <option key={s}>{s}</option>)}</select></label>}
+        <div className="mt-4 flex gap-2"><button disabled={busy || (mode === 'status' && targetStatus === detail.status)} className={`${button} bg-[#273238] text-white`} onClick={mutate}>{busy ? 'Saving…' : 'Confirm'}</button><button disabled={busy} className={button} onClick={() => { setMode('detail'); setActionError('') }}>Back</button></div>
+      </>}
+      {actionError && <p role="alert" className="mt-3 text-sm text-red-700">{actionError}</p>}
+    </Modal>}
   </main>
 }

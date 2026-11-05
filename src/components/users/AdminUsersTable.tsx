@@ -13,8 +13,8 @@ const roleColors: Record<string, string> = {
 const roleColorDefault = 'bg-[#f2f4f8] text-[#68728a]'
 const avatars = ['from-[#e48100] to-[#7567f5]', 'from-[#00b4e5] to-[#2860fa]', 'from-[#6865f5] to-[#d70065]', 'from-[#e40055] to-[#7066f7]', 'from-[#8633f2] to-[#d67b00]', 'from-[#df7900] to-[#9033e2]', 'from-[#df8300] to-[#00996b]', 'from-[#7265f5] to-[#d98200]']
 
-export default function AdminUsersTable({ users, total, activeCount, inactiveCount, loading, page, pageCount, onPage, onDetails }: {
-  users: AdminUser[]; total: number; activeCount: number; inactiveCount: number; loading: boolean; page: number; pageCount: number; onPage: (page: number) => void; onDetails: (user: AdminUser) => void
+export default function AdminUsersTable({ users, total, activeCount, inactiveCount, loading, error, onRetry, page, pageCount, onPage, onDetails }: {
+  users: AdminUser[]; total: number; activeCount: number; inactiveCount: number; loading: boolean; error: string; onRetry: () => void; page: number; pageCount: number; onPage: (page: number) => void; onDetails: (user: AdminUser) => void
 }) {
   const start = total ? (page - 1) * 8 + 1 : 0
   const paginationButton = 'flex size-8 items-center justify-center rounded-lg border border-[#e5e8f0] text-xs font-medium text-[#68728a] hover:bg-[#f7f8fc] focus-visible:outline-2 disabled:cursor-default disabled:opacity-40'
@@ -40,7 +40,7 @@ export default function AdminUsersTable({ users, total, activeCount, inactiveCou
         </tr>)}</tbody>
       </table>
     </div>
-    {!users.length && <p className="px-5 py-12 text-center text-sm text-[#68728a]">{loading ? 'Loading users…' : 'No admin users found. Try a different search or filter.'}</p>}
+    {error ? <div role="alert" className="px-5 py-12 text-center text-sm text-[#68728a]"><p>{error}</p><button type="button" onClick={onRetry} className="mt-3 rounded-xl border border-[#e5e8f0] px-4 py-2 font-semibold focus-visible:outline-2">Retry</button></div> : !users.length && <p role="status" className="px-5 py-12 text-center text-sm text-[#68728a]">{loading ? 'Loading users…' : 'No admin users found. Try a different search or filter.'}</p>}
     <nav aria-label="Admin users pagination" className="flex min-h-16 items-center justify-between gap-3 border-t border-[#e5e8f0] px-5 py-4 text-xs text-[#68728a]">
       <p>Page {page} of {pageCount}</p><div className="flex flex-wrap gap-1.5"><button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => onPage(page - 1)} className={paginationButton}><ChevronLeft size={14} /></button>{Array.from({ length: pageCount }, (_, index) => index + 1).map(number => <button key={number} type="button" aria-label={`Page ${number}`} aria-current={number === page ? 'page' : undefined} onClick={() => onPage(number)} className={`${paginationButton} ${number === page ? 'border-[#273238]! bg-[#273238]! text-white!' : ''}`}>{number}</button>)}<button type="button" aria-label="Next page" disabled={page === pageCount} onClick={() => onPage(page + 1)} className={paginationButton}><ChevronRight size={14} /></button></div>
     </nav>

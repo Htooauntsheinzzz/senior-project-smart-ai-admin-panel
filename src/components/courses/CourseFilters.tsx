@@ -1,16 +1,15 @@
-import { initialPrograms } from '../../data/programs'
 import type { Course, CourseFilters as Filters } from '../../types/course'
+import type { Semester } from '../../services/courseService'
 
-export default function CourseFilters({ courses, filters, onChange, disabled }: { courses: Course[]; filters: Filters; onChange: (key: keyof Filters, value: string) => void; disabled: boolean }) {
+export default function CourseFilters({ courses, filters, onChange, disabled, semesters }: { courses: Course[]; filters: Filters; onChange: (key: keyof Filters, value: string) => void; disabled: boolean; semesters: Semester[] }) {
   const facultyCourses = courses.filter(course => !filters.facultyId || course.facultyId === filters.facultyId)
   const departmentCourses = facultyCourses.filter(course => !filters.departmentId || course.departmentId === filters.departmentId)
-  const programIds = new Set(departmentCourses.flatMap(course => course.programIds))
   const controls: { key: keyof Filters; label: string; width: string; options: [string, string][] }[] = [
     { key: 'facultyId', label: 'Faculty', width: 'sm:w-[261px]', options: [...new Map(courses.map(course => [course.facultyId, course.facultyName]))] },
     { key: 'departmentId', label: 'Department', width: 'sm:w-[198px]', options: [...new Map(facultyCourses.map(course => [course.departmentId, course.departmentName]))] },
-    { key: 'programId', label: 'Program', width: 'sm:w-[215px]', options: initialPrograms.filter(program => programIds.has(program.id)).map(program => [program.id, program.name]) },
+    { key: 'programId', label: 'Program', width: 'sm:w-[215px]', options: [...new Map(departmentCourses.flatMap(course => course.programIds.map(id => [id, course.departmentName])))] },
     { key: 'year', label: 'Year', width: 'sm:w-[130px]', options: [...new Set(courses.flatMap(course => course.curriculumYear === null ? [] : [course.curriculumYear]))].sort((a, b) => a - b).map(year => [String(year), `Year ${year}`]) },
-    { key: 'term', label: 'Semester', width: 'sm:w-[130px]', options: [...new Set(courses.filter(course => course.semester && course.academicYear).map(course => `${course.semester}/${course.academicYear}`))].map(term => [term, `Sem ${term}`]) },
+    { key: 'term', label: 'Semester', width: 'sm:w-[130px]', options: semesters.map(semester => [semester.id, semester.semesterNameEn]) },
     { key: 'status', label: 'Status', width: 'sm:w-[130px]', options: [['active', 'Active'], ['inactive', 'Inactive']] },
   ]
   return <div className="flex flex-wrap items-center gap-3 px-4 pt-4 pb-3 sm:px-7">
