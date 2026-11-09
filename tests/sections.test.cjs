@@ -20,8 +20,8 @@ function harness() {
   }
   return { calls, load, respond: next => { handler = next } }
 }
-const draft = { courseId: '8', number: ' A1 ', capacity: '45', lecturerId: '4', room: '', schedule: '', semester: '5', academicYear: '', status: 'closed' }
-const row = { id: 1, courseId: 8, courseCode: 'TEST', courseName: 'Test course', sectionNumber: 'A1', capacity: 45, enrolledCount: 0, isFull: false, lectureId: 4, lectureNameTh: 'อาจารย์', lectureNameEn: 'Lecturer', semesterId: 5, semesterNameTh: '2568', semesterNameEn: 'Semester 1/2568', status: 'CLOSED', room: null, schedule: null }
+const draft = { courseId: '8', number: ' A1 ', capacity: '45', lecturerId: '4', semester: '5', academicYear: '', academicTermId: '', status: 'closed' }
+const row = { id: 1, courseId: 8, courseCode: 'TEST', courseName: 'Test course', sectionNumber: 'A1', capacity: 45, enrolledCount: 0, isFull: false, lectureId: 4, lectureNameTh: 'อาจารย์', lectureNameEn: 'Lecturer', semesterId: 5, semesterNameTh: '2568', semesterNameEn: 'Semester 1/2568', status: 'CLOSED' }
 const filters = { query: '', courseId: '', semester: '', academicYear: '', lecturerId: '', status: '' }
 
 test('exact request fields, full PUT, blank capacity and unsafe IDs', async () => {
@@ -31,8 +31,8 @@ test('exact request fields, full PUT, blank capacity and unsafe IDs', async () =
   assert.ok(u.validateSectionForm({ ...draft, capacity: '' }, true).capacity)
   assert.equal(s.sectionPayload({ ...draft, capacity: '' }).capacity, undefined)
   await s.updateSection('1', draft)
-  assert.equal(h.calls[0].args[1].room, null)
-  assert.equal(h.calls[0].args[1].schedule, null)
+  // Rooms and times belong to the timetable: the section request never carries them.
+  assert.ok(!('room' in h.calls[0].args[1]) && !('schedule' in h.calls[0].args[1]))
   for (const id of ['0', '-1', '1.5', '9007199254740992', '../1']) {
     await assert.rejects(s.deleteSection(id))
     assert.throws(() => s.sectionPayload({ ...draft, lecturerId: id }))
@@ -64,4 +64,29 @@ test('server full status, malformed records, safe conflict feedback and 204 dele
   h.respond(async () => ({ status: 204 }))
   await s.deleteSection('1')
   assert.equal(h.calls[0].args[0], '/course-sections/1')
+})
+
+test('academic term select lists every term, fills the semester from the term and sends academicTermId', async () => {
+  const h = harness(), u = h.load('src/utils/sectionApi.ts'), s = h.load('src/services/sectionService.ts')
+  const terms = [
+    { id: '3', semesterId: '2', semesterNameEn: 'Semester 1', academicYearLabel: '2025–2026', academicYearCode: '2568', status: 'ACTIVE' },
+    { id: '4', semesterId: '5', semesterNameEn: 'Semester 2', academicYearLabel: '2025–2026', academicYearCode: '2568', status: 'PLANNED' },
+  ]
+  // No semester chosen yet: every term is offered, labelled with its semester.
+  assert.deepEqual(u.sectionTermOptions(terms, '').map(o => o.value), ['3', '4'])
+  assert.equal(u.sectionTermOptions(terms, '')[1].label, '2025–2026 (2568) · Semester 2 · Planned')
+  assert.deepEqual(u.sectionTermOptions(terms, '2').map(o => o.value), ['3'])
+  // The current assignment stays selectable when it is no longer listed.
+  assert.deepEqual(u.sectionTermOptions(terms, '2', { academicTermId: '9', semesterId: '2', academicYearLabel: 'Old', academicYearCode: 'X' }).map(o => o.value), ['3', '9'])
+  const draft = { semester: '', academicTermId: '' }
+  const picked = u.applySectionTermChange(draft, 'academicTermId', '4', terms)
+  assert.deepEqual(picked, { semester: '5', academicTermId: '4' })
+  assert.deepEqual(u.applySectionTermChange(picked, 'semester', '2', terms), { semester: '2', academicTermId: '' })
+  assert.deepEqual(u.applySectionTermChange(picked, 'semester', '5', terms), { semester: '5', academicTermId: '4' })
+  // The create request carries the term.
+  h.respond(async () => ({ data: { id: 7, courseId: 1, courseCode: 'CS301', courseName: 'DS', sectionNumber: '01', capacity: 40, enrolledCount: 0, isFull: false, lectureId: 2, lectureNameTh: 'ท', lectureNameEn: 'Dr. W', semesterId: 5, semesterNameTh: 'ภ', semesterNameEn: 'Semester 2', academicTermId: 4, status: 'ACTIVE' } }))
+  await s.createSection({ courseId: '1', number: '01', capacity: '', lecturerId: '2', semester: '5', academicYear: '', academicTermId: '4', status: 'active' })
+  assert.equal(h.calls.at(-1).args[0], '/course-sections')
+  assert.equal(h.calls.at(-1).args[1].academicTermId, 4)
+  assert.equal(h.calls.at(-1).args[1].semesterId, 5)
 })

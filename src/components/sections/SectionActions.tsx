@@ -35,12 +35,12 @@ export default function SectionActions({ id, onClose, onEdit, onDeleted }: { id:
         Course: `${data.courseCode} — ${data.courseName}`,
         Section: data.sectionNumber,
         Lecturer: data.lectureNameEn || data.lectureNameTh,
-        Room: data.room || 'Not assigned',
-        Schedule: data.schedule || 'Not scheduled',
         Capacity: `${data.enrolledCount}/${data.capacity}`,
         Semester: data.semesterNameEn,
+        'Academic Term': data.academicYearLabel ? `${data.academicYearLabel} (${data.academicYearCode})` : 'Not assigned',
         Status: status,
       }).map(([label, value]) => <div key={label} className="grid grid-cols-[100px_1fr] gap-3 text-sm"><dt className="text-[#68728a]">{label}</dt><dd className="break-words">{value}</dd></div>)}</dl>
+      <p className="mt-4 text-xs leading-5 text-[#68728a]">Rooms and class times are scheduled on the Class Timetable, not on the section.</p>
       <div className="mt-6 flex justify-end gap-3"><button type="button" className={button} onClick={() => onEdit(data)}>Edit</button><button type="button" className={`${button} bg-[#273238] text-white`} onClick={() => { setError(''); setConfirm(true) }}>Delete</button></div>
     </>)}
   </Modal>

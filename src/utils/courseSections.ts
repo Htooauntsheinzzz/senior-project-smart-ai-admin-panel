@@ -18,7 +18,7 @@ export function filterSections(sections: CourseSection[], filters: SectionFilter
 }
 
 // Legacy demo helpers kept for compatibility with any remaining local consumers.
-export const emptySectionDraft: SectionDraft = { courseId: '', number: '', capacity: '50', lecturerId: '', room: '', schedule: '', semester: '1/2568', academicYear: '2024', status: 'active' }
+export const emptySectionDraft: SectionDraft = { courseId: '', number: '', capacity: '50', lecturerId: '', semester: '1/2568', academicYear: '2024', academicTermId: '', status: 'active' }
 export function validateSection(value: SectionDraft) {
   const errors: Partial<Record<keyof SectionDraft, string>> = {}
   if (!value.courseId) errors.courseId = 'Select a course.'
@@ -31,5 +31,5 @@ export function validateSection(value: SectionDraft) {
   return errors
 }
 export function createDemoSection(value: SectionDraft): CourseSection {
-  return { ...value, id: crypto.randomUUID(), number: String(Number(value.number)).padStart(2, '0'), capacity: value.capacity.trim() ? Number(value.capacity) : 50, room: value.room.trim(), schedule: value.schedule.trim(), enrolled: 0 }
+  return { ...value, id: crypto.randomUUID(), number: String(Number(value.number)).padStart(2, '0'), capacity: value.capacity.trim() ? Number(value.capacity) : 50, enrolled: 0 }
 }

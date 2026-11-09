@@ -1,33 +1,107 @@
-import { Building2, Plus } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import Pagination from '../ui/Pagination'
+import type { Building, BuildingListItem, BuildingStatistics, BuildingStatus, CampusPage, CampusSite } from '../../types/campus'
+import { deleteBuilding, getBuildingById, getBuildingStatistics, getBuildings } from '../../services/buildingService'
+import { getCampusSites } from '../../services/campusMapService'
+import { buildingStatuses, campusError, formatArea, formatHours } from '../../utils/campusApi'
+import { ActionMenu, Badge, CampusTable, CodeChip, ConfirmDelete, DetailsModal, FilterSelect, PageHeader, SearchInput, SerialChip, SuccessToast, SummaryCards, TableState, primaryButton } from './CampusUi'
+import { BuildingForm } from './CampusForms'
 
-const summaries = [
-  { label: 'Total Buildings', style: 'border-[#dedfe2] bg-[#f0f0f1] text-[#273238]' },
-  { label: 'Active', style: 'border-[#a7f3d0] bg-[#d1fae5] text-[#009d78]' },
-  { label: 'Under Renovation', style: 'border-[#fde68a] bg-[#fef3c7] text-[#b45309]' },
-  { label: 'Total Rooms', style: 'border-[#ddd6fe] bg-[#ede9fe] text-[#7c3aed]' },
-]
+const PAGE_SIZE = 8
+const describe = (error: unknown) => campusError(error, 'Building not found.')
 
-export default function BuildingsContent() {
+export default function BuildingsContent({ onDrawerChange }: { onDrawerChange: (open: boolean) => void }) {
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<BuildingStatus | ''>('')
+  const [page, setPage] = useState(1)
+  const [version, setVersion] = useState(0)
+  const [result, setResult] = useState<{ key: string; data?: CampusPage<BuildingListItem>; error?: string } | null>(null)
+  const [stats, setStats] = useState<{ version: number; data?: BuildingStatistics; error?: string } | null>(null)
+  const [sites, setSites] = useState<CampusSite[]>([])
+  const [drawer, setDrawer] = useState<{ building?: Building } | null>(null)
+  const [viewing, setViewing] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState<{ id: number; name: string } | null>(null)
+  const [message, setMessage] = useState('')
+  const [actionError, setActionError] = useState('')
+  const key = JSON.stringify([search, status, page, version])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      getBuildings({ page: page - 1, size: PAGE_SIZE, search, status }, controller.signal)
+        .then(data => { if (!controller.signal.aborted) setResult({ key, data }) })
+        .catch(error => { if (!controller.signal.aborted) setResult({ key, error: describe(error) }) })
+    }, 300)
+    return () => { controller.abort(); window.clearTimeout(timer) }
+  }, [search, status, page, key])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    getBuildingStatistics(controller.signal).then(data => { if (!controller.signal.aborted) setStats({ version, data }) }).catch(error => { if (!controller.signal.aborted) setStats({ version, error: describe(error) }) })
+    return () => controller.abort()
+  }, [version])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    getCampusSites(controller.signal).then(rows => { if (!controller.signal.aborted) setSites(rows) }).catch(() => undefined)
+    return () => controller.abort()
+  }, [])
+
+  const current = result?.key === key ? result : null
+  const totals = stats?.version === version ? stats : null
+  const rows = current?.data?.content ?? []
+  const total = current?.data?.totalElements
+  const pageCount = Math.max(1, current?.data?.totalPages ?? 1)
+  const refresh = () => setVersion(previous => previous + 1)
+  const dismiss = useCallback(() => setMessage(''), [])
+
+  function openDrawer(next: { building?: Building } | null) { setDrawer(next); onDrawerChange(!!next) }
+
   return <main className="min-w-0 text-[#17213c]">
-    <section aria-labelledby="buildings-title" className="border-b border-[#e5e8f0] bg-white px-4 pt-6 pb-5 sm:px-7">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div><h1 id="buildings-title" className="font-display text-[22px] leading-[33px] font-extrabold">Campus Buildings</h1><p className="mt-1 text-[13px] leading-5 text-[#68728a]">Manage university building information used by the campus navigation system</p></div>
-        <button type="button" disabled aria-describedby="buildings-availability" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#273238] px-5 py-2.5 text-[13px] font-semibold text-white disabled:cursor-not-allowed"><Plus size={15} aria-hidden="true" />Add Building</button>
-      </header>
-      <dl aria-label="Building summary" className="mt-5 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 xl:grid-cols-4">
-        {summaries.map(({ label, style }) => <div key={label} className={`flex min-h-[84px] flex-col rounded-xl border px-4 py-3 ${style}`}><dt className="order-2 mt-1 text-[12px] leading-5">{label}</dt><dd aria-label="Unavailable" className="order-1 font-display text-[25px] leading-8 font-extrabold">—</dd></div>)}
-      </dl>
-    </section>
-    <div className="flex flex-wrap items-center gap-3 border-b border-[#e5e8f0] bg-white px-4 py-4 sm:px-7">
-      <input disabled type="search" aria-label="Search buildings" aria-describedby="buildings-availability" placeholder="Search buildings…" className="h-10 w-full rounded-xl border border-[#e5e8f0] bg-[#f7f8fc] px-4 text-[13px] text-[#68728a] disabled:cursor-not-allowed sm:w-[280px]" />
-      <select disabled aria-label="Building status" aria-describedby="buildings-availability" className="h-10 rounded-xl border border-[#e5e8f0] bg-[#f7f8fc] px-4 text-[13px] disabled:cursor-not-allowed"><option>All Statuses</option><option>Active</option><option>Under Renovation</option></select><p className="text-[12px] text-[#68728a] sm:ml-auto">Building count unavailable</p>
+    <PageHeader title="Campus Buildings" description="Manage university building information used by the campus navigation system"
+      actions={<button type="button" onClick={() => openDrawer({})} disabled={!!drawer} className={primaryButton}><img src="/assets/figma/faculty-plus.svg" width="15" height="15" alt="" />Add Building</button>}>
+      <SummaryCards label="Building summary" error={totals?.error} onRetry={refresh} items={[
+        { label: 'Total Buildings', value: totals?.data?.totalBuildings, tone: 'neutral' },
+        { label: 'Active', value: totals?.data?.activeBuildings, tone: 'green' },
+        { label: 'Under Renovation', value: totals?.data?.underRenovationBuildings, tone: 'amber' },
+        { label: 'Total Rooms', value: totals?.data?.totalRooms, tone: 'violet' },
+      ]} />
+    </PageHeader>
+    <div className="flex flex-wrap items-center gap-2.5 border-b-[1.25px] border-[#e5e8f0] bg-white px-4 py-3 sm:px-6">
+      <SearchInput label="Search buildings" placeholder="Search buildings…" value={search} onChange={value => { setSearch(value); setPage(1) }} />
+      <FilterSelect label="Building status" allLabel="All Statuses" value={status} onChange={value => { setStatus(value as BuildingStatus | ''); setPage(1) }} options={Object.entries(buildingStatuses).map(([value, s]) => ({ value, label: s.label }))} />
+      <p className="text-[13px] text-[#68728a] sm:ml-auto">{total == null ? '—' : `${total} building${total === 1 ? '' : 's'}`}</p>
     </div>
-    <section aria-label="Building directory" className="px-4 sm:px-7">
-      <div role="region" aria-label="Buildings table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-[-2]">
-        <table className="w-full min-w-[850px] text-left text-[13px]"><caption className="sr-only">Campus building codes, names, floors, rooms, opening hours, status, and actions</caption><thead className="border-b border-[#e5e8f0] bg-[#f7f8fc] text-[10px] tracking-[0.06em] text-[#68728a] uppercase"><tr>{['Building Code', 'Building Name', 'Floors', 'Rooms', 'Opening Hours', 'Status', 'Actions'].map(label => <th key={label} scope="col" className="px-4 py-4 font-semibold">{label}</th>)}</tr></thead><tbody /></table>
-      </div>
-      <div className="flex min-h-[330px] flex-col items-center justify-center border-b border-[#e5e8f0] bg-white px-6 py-12 text-center"><Building2 size={32} aria-hidden="true" className="mb-4 text-[#8791a8]" /><h2 className="font-display text-base font-bold">Building data unavailable</h2><p id="buildings-availability" role="status" className="mt-2 max-w-md text-[13px] leading-6 text-[#68728a]">The existing backend does not expose a buildings API. Building records, totals, search, status filtering, and building management require an existing compatible API.</p></div>
-      <footer className="flex flex-wrap items-center justify-between gap-4 py-5 text-[12px] text-[#68728a]"><p>Building count unavailable</p><nav aria-label="Building pagination"><button type="button" disabled aria-current="page" aria-label="Page 1, building data unavailable" className="rounded-lg bg-[#273238] px-3.5 py-2 font-semibold text-white disabled:cursor-not-allowed">1</button></nav></footer>
+    <section aria-label="Building directory" className="px-4 pt-4 pb-6 sm:px-6">
+      {actionError && <p role="alert" className="mb-3 text-[13px] text-[#d80255]">{actionError} <button type="button" onClick={() => setActionError('')} className="underline">Dismiss</button></p>}
+      <CampusTable label="Buildings table" caption="Row numbers, building codes, names, floors, rooms, opening hours, status and actions" minWidth={980}
+        headers={['No.', 'Building Code', 'Building Name', 'Floors', 'Rooms', 'Opening Hours', 'Status', 'Actions']}
+        state={<TableState loading={!current} error={current?.error} empty={!rows.length} loadingText="Loading buildings…" emptyText="No buildings found." onRetry={refresh} />}>
+        {rows.map((building, index) => { const s = buildingStatuses[building.status]; return <tr key={building.id}>
+          <td className="px-3.5 py-3"><SerialChip value={(page - 1) * PAGE_SIZE + index + 1} /></td>
+          <td className="px-3.5 py-3"><CodeChip>{building.buildingCode}</CodeChip></td>
+          <th scope="row" className="px-3.5 py-3 font-semibold">{building.buildingName}{formatArea(building.areaSquareMeters) && <span className="block text-[11px] leading-[16.5px] font-normal text-[#68728a]">{formatArea(building.areaSquareMeters)}</span>}</th>
+          <td className="px-3.5 py-3 font-semibold">{building.totalFloors}F</td>
+          <td className="px-3.5 py-3">{building.totalRooms}</td>
+          <td className="px-3.5 py-3 font-mono text-xs text-[#68728a]">{formatHours(building.openingHoursSummary)}</td>
+          <td className="px-3.5 py-3"><Badge bg={s.bg} text={s.text} dot>{s.label}</Badge></td>
+          <td className="px-3.5 py-3"><ActionMenu label={`Actions for ${building.buildingName}`} disabled={!!drawer} items={[
+            { label: 'View details', onSelect: () => setViewing(building.id) },
+            { label: 'Edit', onSelect: () => { setActionError(''); getBuildingById(building.id).then(data => openDrawer({ building: data })).catch(error => setActionError(describe(error))) } },
+            { label: 'Delete', danger: true, onSelect: () => setDeleting({ id: building.id, name: building.buildingName }) },
+          ]} /></td>
+        </tr> })}
+      </CampusTable>
+      {!!total && <Pagination label="Building pagination" page={page} pageCount={pageCount} onPage={setPage} summary={`Showing ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} of ${total}`} />}
     </section>
+    {drawer && <BuildingForm key={drawer.building?.id ?? 'new'} building={drawer.building} sites={sites} onClose={() => openDrawer(null)} onSaved={(name, operation, warning) => { openDrawer(null); refresh(); setMessage(`${name} was ${operation} successfully.${warning ? ` ${warning}` : ''}`) }} />}
+    {viewing != null && <DetailsModal<Building> title="Building Details" describeError={describe} load={signal => getBuildingById(viewing, signal)} onClose={() => setViewing(null)}
+      onEdit={data => { setViewing(null); openDrawer({ building: data }) }} onDelete={data => { setViewing(null); setDeleting({ id: data.id, name: data.buildingName }) }}
+      rows={b => [['Building Code', <CodeChip key="c">{b.buildingCode}</CodeChip>], ['Name', b.buildingName], ['Name (Thai)', b.buildingNameTh], ['Campus', b.siteName], ['Floors', b.totalFloors], ['Area', formatArea(b.areaSquareMeters)], ['Rooms', b.totalRooms], ['Opening Hours', formatHours(b.openingHoursSummary)], ['Status', buildingStatuses[b.status].label], ['Description', b.description]]} />}
+    {deleting && <ConfirmDelete title="Delete building?" describeError={describe} onClose={() => setDeleting(null)} onConfirm={() => deleteBuilding(deleting.id)}
+      onDeleted={() => { setMessage(`${deleting.name} was deleted successfully.`); setDeleting(null); if (rows.length === 1 && page > 1) setPage(page - 1); refresh() }}>
+      Delete <strong className="text-[#17213c]">{deleting.name}</strong>? The backend refuses the delete while rooms, campus places, or navigation entrances still belong to this building.
+    </ConfirmDelete>}
+    <SuccessToast message={message} onDismiss={dismiss} />
   </main>
 }

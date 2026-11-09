@@ -13,7 +13,7 @@ function harness() {
   return { s: module.exports, calls, respond: fn => { handler = fn } }
 }
 const row = { id: 1, studentId: 2, studentCode: 'S002', studentName: 'Student Name', courseId: 3, courseCode: 'CS101', courseName: 'Course', courseSectionId: 4, sectionNumber: '01', semesterId: 5, semesterNameEn: 'Semester 1', semesterNameTh: 'ภาคเรียน 1', enrollmentDate: '2026-10-23', status: 'PENDING' }
-const detail = { ...row, studentFirstName: 'Student', studentLastName: 'Name', universityEmail: 'student@example.test', lectureId: 6, lectureNameEn: 'Lecturer', lectureNameTh: 'อาจารย์', room: null, schedule: null, capacity: 30, enrolledCount: 0, isFull: false }
+const detail = { ...row, studentFirstName: 'Student', studentLastName: 'Name', universityEmail: 'student@example.test', lectureId: 6, lectureNameEn: 'Lecturer', lectureNameTh: 'อาจารย์', capacity: 30, enrolledCount: 0, isFull: false }
 const draft = { studentId: '2', courseSectionId: '4', enrollmentDate: '', status: 'PENDING' }
 
 test('enrollment create/update/status/delete use exact contracts and accept 204 deletion', async () => {
@@ -53,7 +53,7 @@ test('list uses only supported filters; details map distinct response and preser
   assert.deepEqual(h.calls[0].args[1].params, { page: 0, size: 10, sort: 'id,asc', search: 'CS', courseSectionId: 4, status: 'PENDING' })
   assert.equal(h.calls[0].args[1].signal, signal)
   const record = await h.s.getEnrollment('1')
-  assert.equal(record.room, null); assert.equal(record.isFull, false); assert.equal(record.enrolledCount, 0)
+  assert.ok(!('room' in record) && !('schedule' in record)); assert.equal(record.isFull, false); assert.equal(record.enrolledCount, 0)
   assert.equal(record.studentName, 'Student Name')
   h.respond(async () => ({ data: { ...detail, id: 99 } }))
   await assert.rejects(h.s.getEnrollment('1'), /ID/)

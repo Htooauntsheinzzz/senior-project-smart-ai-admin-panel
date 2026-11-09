@@ -8,6 +8,7 @@ import AddAdminUserContent from '../components/users/AddAdminUserContent'
 import StudentsPage from '../pages/students/StudentsPage'
 import AcademicManagementPage from '../pages/academic/AcademicManagementPage'
 import TimetablePage from '../pages/timetable/TimetablePage'
+import AcademicTermsPage from '../pages/timetable/AcademicTermsPage'
 import FacultiesPage from '../pages/faculties/FacultiesPage'
 import DepartmentsPage from '../pages/departments/DepartmentsPage'
 import ProgramsPage from '../pages/programs/ProgramsPage'
@@ -20,6 +21,7 @@ import EnrollmentsPage from '../pages/enrollments/EnrollmentsPage'
 import ProtectedRoute from './ProtectedRoute'
 import AssignmentsPage from '../pages/assignments/AssignmentsPage'
 import ExamsPage from '../pages/exams/ExamsPage'
+import CampusSetupPage from '../pages/campus/CampusSetupPage'
 import CampusMapPage from '../pages/campus/CampusMapPage'
 import BuildingsPage from '../pages/campus/BuildingsPage'
 import RoomsPage from '../pages/campus/RoomsPage'
@@ -76,6 +78,7 @@ export default function AppRoutes() {
         <Route path="students" element={<StudentsPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="exams" element={<ExamsPage />} />
+        <Route path="campus-setup" element={<CampusSetupPage />} />
         <Route path="campus-map" element={<CampusMapPage />} />
         <Route path="buildings" element={<BuildingsPage />} />
         <Route path="rooms" element={<RoomsPage />} />
@@ -93,6 +96,7 @@ export default function AppRoutes() {
         <Route path="ai-feedback" element={<AiFeedbackPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
+        <Route path="academic-terms" element={<AcademicTermsPage />} />
         <Route path="semesters" element={<AcademicManagementPage />} />
         <Route path="lectures" element={<LecturersPage />} />
         <Route path="lecturers" element={<Navigate replace to="/admin/lectures" />} />

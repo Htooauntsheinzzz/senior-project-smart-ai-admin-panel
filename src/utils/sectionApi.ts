@@ -7,8 +7,6 @@ export function validateSectionForm(value: SectionDraft, editing = false) {
   else if (value.number.trim().length > 20) errors.number = 'Use at most 20 characters.'
   if (value.capacity.trim() && (!/^\d+$/.test(value.capacity.trim()) || !Number.isSafeInteger(Number(value.capacity)) || Number(value.capacity) < 1)) errors.capacity = 'Enter a positive whole-number capacity, or leave blank for default.'
   if (!/^[1-9]\d*$/.test(value.lecturerId) || !Number.isSafeInteger(Number(value.lecturerId))) errors.lecturerId = 'Enter a valid lecturer ID.'
-  if (value.room.trim().length > 100) errors.room = 'Use at most 100 characters.'
-  if (value.schedule.trim().length > 255) errors.schedule = 'Use at most 255 characters.'
   if (!/^[1-9]\d*$/.test(value.semester) || !Number.isSafeInteger(Number(value.semester))) errors.semester = 'Select a semester.'
   if (!['active', 'closed'].includes(value.status)) errors.status = 'Select a valid status.'
   if (editing && !value.capacity.trim()) errors.capacity = 'Capacity is required when updating a section.'
@@ -27,6 +25,8 @@ export function sectionError(error: unknown) {
     else if (code === 'INVALID_COURSE_SECTION_LECTURER') fields.lecturerId = message = 'The selected lecturer is inactive or does not belong to the course faculty and department.'
     else if (code === 'INVALID_COURSE_SECTION_STATUS') fields.status = message = 'The selected status is invalid.'
     else if (code === 'COURSE_SECTION_ALREADY_EXISTS') fields.number = message = 'Course section already exists for this course and semester.'
+    else if (code === 'ACADEMIC_TERM_NOT_FOUND') fields.academicTermId = message = 'The selected academic term does not exist or was deleted.'
+    else if (code === 'ACADEMIC_TERM_SEMESTER_MISMATCH') fields.academicTermId = message = 'The academic term belongs to a different semester. Pick a term of the selected semester.'
     else if (code === 'COURSE_SECTION_NOT_FOUND') message = 'Section not found.'
     else if (response.status === 404) message = 'A selected course, lecturer, or semester is unavailable.'
     else if (response.status === 400) message = 'The request is invalid. Check the entered values.'
@@ -41,13 +41,39 @@ export function adaptApiSectionToCourseSection(apiSection: import('../services/s
     courseId: apiSection.courseId,
     number: apiSection.sectionNumber,
     lecturerId: apiSection.lectureId,
-    room: apiSection.room ?? '',
-    schedule: apiSection.schedule ?? '',
     capacity: apiSection.capacity,
     enrolled: apiSection.enrolledCount,
     isFull: apiSection.isFull,
     semester: apiSection.semesterNameEn,
-    academicYear: '',
+    academicYear: apiSection.academicYearLabel ?? '',
     status: apiSection.status === 'ACTIVE' ? 'active' : 'closed',
   }
+}
+
+// ---- Academic term on a section (spec 40) ------------------------------------
+type TermRow = { id: string; semesterId: string; semesterNameEn: string; academicYearLabel: string; academicYearCode: string; status: string }
+const termStatusLabel = (status: string) => status === 'ACTIVE' ? 'Active' : status === 'CLOSED' ? 'Closed' : 'Planned'
+
+/**
+ * Options of the Academic Term select: every term while no semester is chosen (choosing one fills the semester),
+ * only that semester's terms afterwards. A section's current term stays selectable even when it is no longer listed.
+ */
+export function sectionTermOptions(terms: TermRow[], semesterId: string, current?: { academicTermId: string | null; semesterId: string; academicYearLabel: string | null; academicYearCode: string | null }) {
+  const options = terms.filter(term => !semesterId || term.semesterId === semesterId)
+    .map(term => ({ value: term.id, label: `${term.academicYearLabel} (${term.academicYearCode}) · ${term.semesterNameEn} · ${termStatusLabel(term.status)}` }))
+  if (current?.academicTermId && (!semesterId || current.semesterId === semesterId) && !options.some(option => option.value === current.academicTermId)) {
+    options.push({ value: current.academicTermId, label: `${current.academicYearLabel ?? current.academicYearCode ?? 'Current term'} (current assignment)` })
+  }
+  return options
+}
+
+/** A term belongs to one semester (ACADEMIC_TERM_SEMESTER_MISMATCH): picking a term fills the semester, changing the semester drops an incompatible term. */
+export function applySectionTermChange<T extends { semester: string; academicTermId: string }>(draft: T, key: string, value: string, terms: TermRow[]): T {
+  const next = { ...draft, [key]: value }
+  if (key === 'academicTermId') {
+    const term = terms.find(entry => entry.id === value)
+    if (term && term.semesterId !== draft.semester) next.semester = term.semesterId
+  }
+  if (key === 'semester' && !terms.some(term => term.id === next.academicTermId && term.semesterId === value)) next.academicTermId = ''
+  return next
 }

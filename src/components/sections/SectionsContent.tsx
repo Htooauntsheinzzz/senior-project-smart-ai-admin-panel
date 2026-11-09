@@ -82,9 +82,8 @@ export default function SectionsContent({ adding, onOpen: openCreate, onClose, o
       number: input.number,
       capacity: input.capacity,
       lecturerId: input.lecturerId,
-      room: input.room,
-      schedule: input.schedule,
       semester: input.semester,
+      academicTermId: input.academicTermId,
       status: input.status,
     }
     if (editing) await updateSection(editing.id, payload)
