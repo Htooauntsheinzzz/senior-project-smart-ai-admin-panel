@@ -70,6 +70,12 @@ test('schedule validation mirrors the backend rules and the term window', () => 
   assert.match(u.validateScheduleDraft({ ...draft, effectiveTo: '2026-12-20' }, context).effectiveTo, /within the academic term/)
   assert.match(u.validateScheduleDraft({ ...draft, effectiveFrom: '2026-08-03' }, context).effectiveTo, /within the academic term/)
   assert.equal(u.validateScheduleDraft({ ...draft, effectiveTo: '2026-08-01' }, context).effectiveTo, 'The last date must not be before the first date.')
+  // Enrollment due date (backend V47): optional, and never after Effective From.
+  assert.equal(u.validateScheduleDraft({ ...draft, enrollmentDueDate: '2026-08-10' }, context).enrollmentDueDate, undefined)
+  assert.match(u.validateScheduleDraft({ ...draft, enrollmentDueDate: '2026-08-11' }, context).enrollmentDueDate, /must not be after/)
+  assert.equal(u.scheduleSlotPayload({ ...draft, enrollmentDueDate: '2026-08-01' }).enrollmentDueDate, '2026-08-01')
+  assert.equal('enrollmentDueDate' in u.scheduleSlotPayload(draft), false)
+  assert.equal('enrollmentDueDate' in u.conflictCheckPayload({ ...draft, enrollmentDueDate: '2026-08-01' }), false)
   assert.match(u.validateScheduleDraft(draft, { term, sectionHasTerm: false }).courseSectionId, /no academic term/)
   assert.equal(u.validateScheduleDraft({ ...draft, buildingId: '', roomId: '' }, context).roomId, 'Select a building first.')
   assert.equal(u.validateScheduleDraft({ ...draft, roomId: '' }, context).roomId, 'Select a room in this building.')
@@ -79,7 +85,7 @@ test('schedule validation mirrors the backend rules and the term window', () => 
   assert.equal(u.validateScheduleDraft({ ...draft, notes: 'x'.repeat(2001) }, context).notes, 'Use at most 2000 characters.')
   assert.deepEqual(u.validateScheduleDraft(draft, { term: null, sectionHasTerm: true }), {})
   assert.deepEqual(u.draftFromMeeting({ course: { id: '9' }, courseSection: { id: '7' }, meetingType: 'LAB', dayOfWeek: 5, startTime: '13:00', endTime: '15:00', location: { buildingId: '4', roomId: null }, effectiveFrom: '2026-08-10', effectiveTo: '2026-12-11', notes: null }),
-    { courseId: '9', courseSectionId: '7', meetingType: 'LAB', dayOfWeek: '5', startTime: '13:00', endTime: '15:00', buildingId: '4', roomId: '', effectiveFrom: '2026-08-10', effectiveTo: '2026-12-11', notes: '' })
+    { courseId: '9', courseSectionId: '7', meetingType: 'LAB', dayOfWeek: '5', startTime: '13:00', endTime: '15:00', buildingId: '4', roomId: '', effectiveFrom: '2026-08-10', effectiveTo: '2026-12-11', enrollmentDueDate: '', notes: '' })
 })
 
 test('faculty colours are stable per faculty and filters cascade', () => {

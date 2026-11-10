@@ -33,9 +33,9 @@ export default function EnrollmentRecordPicker({ kind, value, onChange, disabled
           rows = data.content.map(mapCourse).map(r => ({ id: r.id, label: `${r.code} — ${r.name}` })); pages = data.totalPages
           if (new Set(rows.map(r => r.id)).size !== rows.length || rows.length !== Math.min(10, Math.max(0, data.totalElements - page * 10))) throw new Error('Incomplete course page.')
         } else {
-          const data = await getSections({ search: search.trim() || undefined, page, size: 10, sort: 'id,asc', courseId: courseId ? Number(courseId) : undefined, ...(eligibleOnly ? { status: 'ACTIVE' } : {}) }, controller.signal)
+          const data = await getSections({ search: search.trim() || undefined, page, size: 10, sort: 'id,asc', courseId: courseId ? Number(courseId) : undefined, ...(eligibleOnly ? { status: 'ACTIVE', scheduled: true } : {}) }, controller.signal)
           if (!data || !Array.isArray(data.content) || data.page !== page || data.size !== 10 || !Number.isSafeInteger(data.totalElements) || data.totalElements < 0 || data.totalPages !== Math.ceil(data.totalElements / 10)) throw new Error('Unexpected section page.')
-          rows = data.content.map(mapSection).map(r => ({ id: r.id, label: `${r.courseCode} — ${r.sectionNumber} · ${r.semesterNameEn} · ${r.enrolledCount}/${r.capacity}${r.isFull ? ' (full)' : ''}`, semesterId: r.semesterId, semesterName: r.semesterNameEn })); pages = data.totalPages
+          rows = data.content.map(mapSection).map(r => ({ id: r.id, label: `${r.courseCode} — ${r.sectionNumber} · ${r.semesterNameEn} · ${r.enrolledCount}/${r.capacity}${r.isFull ? ' (full)' : ''}${r.enrollmentDueDate ? (r.enrollmentOpen === false ? ` · closed ${r.enrollmentDueDate}` : ` · enroll by ${r.enrollmentDueDate}`) : ''}`, semesterId: r.semesterId, semesterName: r.semesterNameEn })); pages = data.totalPages
           if (new Set(rows.map(r => r.id)).size !== rows.length || rows.length !== Math.min(10, Math.max(0, data.totalElements - page * 10))) throw new Error('Incomplete section page.')
         }
         if (!controller.signal.aborted) {

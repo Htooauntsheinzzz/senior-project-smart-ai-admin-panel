@@ -131,7 +131,7 @@ export default function ClassDetailsDrawer({ selection, reloadKey, colorFor, bus
           <Card icon={<UserRound size={16} />} label="Lecturer" value={data.lecturer.name} />
           <Card icon={<CalendarRange size={16} />} label="Semester" value={data.academicTerm ? `${data.academicTerm.semesterName} · ${data.academicTerm.academicYearLabel}` : 'No academic term assigned'}
             detail={data.academicTerm ? `${formatDate(data.academicTerm.startDate)} – ${formatDate(data.academicTerm.endDate)}` : 'Assign a term to the section in Course Sections.'} />
-          <Card icon={<Tag size={16} />} label="Class type & dates" value={meetingTypeLabel(data.meetingType)} detail={`${formatDate(data.effectiveFrom)} – ${formatDate(data.effectiveTo)}`} />
+          <Card icon={<Tag size={16} />} label="Class type & dates" value={meetingTypeLabel(data.meetingType)} detail={`${formatDate(data.effectiveFrom)} – ${formatDate(data.effectiveTo)}${data.enrollmentDueDate ? ` · Enroll by ${formatDate(data.enrollmentDueDate)}` : ''}`} />
           {data.notes && <Card icon={<FileText size={16} />} label="Notes" value={<span className="font-normal whitespace-pre-wrap">{data.notes}</span>} />}
           <section aria-label="Schedule status" className="rounded-xl border border-[#e5e8f0] p-3">
             <div className="flex items-center justify-between gap-2"><p className="text-[11px] leading-[16.5px] font-bold tracking-[0.275px] text-[#68728a] uppercase">Status</p>{tone && <Badge bg={tone.bg} text={tone.text} dot>{statusLabel(data.status)}</Badge>}</div>

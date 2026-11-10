@@ -17,6 +17,10 @@ export type ApiSection = {
   semesterId: string
   semesterNameTh: string
   semesterNameEn: string
+  // Backend spec 44: on the published timetable, and whether its enrollment due date is still open.
+  scheduled?: boolean
+  enrollmentDueDate?: string
+  enrollmentOpen?: boolean
   // Optional year-specific term (Flyway V41); required before a section can appear on the timetable.
   academicTermId: string | null
   academicYearCode: string | null
@@ -86,6 +90,9 @@ export function mapSection(value: unknown): ApiSection {
     semesterId: String(row.semesterId),
     semesterNameTh: row.semesterNameTh,
     semesterNameEn: row.semesterNameEn,
+    scheduled: typeof row.scheduled === 'boolean' ? row.scheduled : undefined,
+    enrollmentDueDate: typeof row.enrollmentDueDate === 'string' ? row.enrollmentDueDate : undefined,
+    enrollmentOpen: typeof row.enrollmentOpen === 'boolean' ? row.enrollmentOpen : undefined,
     academicTermId: row.academicTermId == null ? null : String(row.academicTermId),
     academicYearCode: row.academicYearCode == null ? null : String(row.academicYearCode),
     academicYearLabel: row.academicYearLabel == null ? null : String(row.academicYearLabel),
@@ -109,6 +116,8 @@ export interface SectionListParams {
   semesterId?: number
   lectureId?: number
   status?: string
+  /** true = only sections with a published timetable meeting (backend spec 44). */
+  scheduled?: boolean
   sort?: string
 }
 

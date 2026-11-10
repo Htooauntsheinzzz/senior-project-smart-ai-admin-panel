@@ -199,6 +199,9 @@ export default function ScheduleFormModal({ mode, meeting, initial, options, opt
           <Field id={fieldId('effectiveTo')} label="Effective To" error={errors.effectiveTo}>
             <Input id={fieldId('effectiveTo')} type="date" value={draft.effectiveTo} onChange={value => update('effectiveTo', value)} min={draft.effectiveFrom || term?.startDate} max={term?.endDate} error={errors.effectiveTo} />
           </Field>
+          <Field id={fieldId('enrollmentDueDate')} label="Enrollment Due Date" required={false} error={errors.enrollmentDueDate} hint="Optional. Last day students and admins can enroll; not after Effective From.">
+            <Input id={fieldId('enrollmentDueDate')} type="date" value={draft.enrollmentDueDate} onChange={value => update('enrollmentDueDate', value)} max={draft.effectiveFrom || undefined} error={errors.enrollmentDueDate} hint="Optional. Last day students and admins can enroll; not after Effective From." />
+          </Field>
         </div>
       </section>
 

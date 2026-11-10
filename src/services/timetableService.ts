@@ -24,6 +24,7 @@ const optionalId = (value: unknown) => value == null ? null : String(value)
 const text = (value: unknown, what: string) => { if (typeof value !== 'string') throw unexpected(what); return value }
 const optionalText = (value: unknown) => value == null ? null : String(value)
 const timeOf = (value: unknown, what: string) => { if (typeof value !== 'string' || !isTime(value.slice(0, 5))) throw unexpected(what); return value.slice(0, 5) }
+const optionalDate = (value: unknown) => typeof value === 'string' && isIsoDate(value) ? value : null
 const dateOf = (value: unknown, what: string) => { if (typeof value !== 'string' || !isIsoDate(value)) throw unexpected(what); return value }
 const timestamp = (value: unknown) => value == null ? null : typeof value === 'string' ? value : typeof value === 'number' && Number.isFinite(value) ? new Date(value * 1000).toISOString() : null
 
@@ -113,6 +114,7 @@ export function mapMeetingListItem(value: unknown): MeetingListItem {
     dayOfWeek: day, dayName: optionalText(row.dayName) ?? '', startTime: timeOf(row.startTime, 'schedule'), endTime: timeOf(row.endTime, 'schedule'),
     campusId: optionalId(row.campusId), campusName: optionalText(row.campusName), buildingId: optionalId(row.buildingId), buildingName: optionalText(row.buildingName), roomId: optionalId(row.roomId), roomNumber: optionalText(row.roomNumber), legacyRoomLabel: optionalText(row.legacyRoomLabel),
     meetingType: meetingType(row.meetingType), status: meetingStatus(row.status), effectiveFrom: dateOf(row.effectiveFrom, 'schedule'), effectiveTo: dateOf(row.effectiveTo, 'schedule'),
+    enrollmentDueDate: optionalDate(row.enrollmentDueDate),
   }
 }
 
@@ -148,7 +150,7 @@ export function mapMeetingDetail(value: unknown): MeetingDetail {
     id: id(row.id, 'schedule'), courseSection: mapNamedRef(row.courseSection, 'schedule'), course: mapNamedRef(row.course, 'schedule'), academicTerm: mapTermRef(row.academicTerm),
     faculty: mapNamedRef(row.faculty, 'schedule'), department: mapNamedRef(row.department, 'schedule'), lecturer: mapNamedRef(row.lecturer, 'schedule'), location: mapLocation(row.location),
     meetingType: meetingType(row.meetingType), dayOfWeek: day, dayName: optionalText(row.dayName) ?? '', startTime: timeOf(row.startTime, 'schedule'), endTime: timeOf(row.endTime, 'schedule'),
-    effectiveFrom: dateOf(row.effectiveFrom, 'schedule'), effectiveTo: dateOf(row.effectiveTo, 'schedule'), status: meetingStatus(row.status), notes: optionalText(row.notes), createdAt: timestamp(row.createdAt), updatedAt: timestamp(row.updatedAt),
+    effectiveFrom: dateOf(row.effectiveFrom, 'schedule'), effectiveTo: dateOf(row.effectiveTo, 'schedule'), enrollmentDueDate: optionalDate(row.enrollmentDueDate), status: meetingStatus(row.status), notes: optionalText(row.notes), createdAt: timestamp(row.createdAt), updatedAt: timestamp(row.updatedAt),
   }
 }
 

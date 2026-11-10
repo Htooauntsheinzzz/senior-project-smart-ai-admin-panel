@@ -479,3 +479,17 @@ This document records implementation changes and technical decisions for the Sma
 - `docker compose ps` showed all four services under the `smart-university` project.
 - Frontend HTTP route check passed.
 - Backend login endpoint returned the expected `401` for invalid credentials.
+
+## 2026-11-10 - Enrollment due date on the timetable; enroll only into scheduled sections
+
+Backend spec `44-enrollment-timetable-and-due-date.md` (decision D62, Flyway V47). Requested by Hsu.
+
+### Changes
+
+- **Timetable schedule form:** new optional **Enrollment Due Date** next to Effective From / Effective To. It is sent as `enrollmentDueDate` and may not be after Effective From (checked in the form and by the backend, `TIMETABLE_INVALID_ENROLLMENT_DUE_DATE`). Empty means no deadline. The class details drawer shows "Enroll by <date>".
+- **Enrollment form section picker:** asks for `status=ACTIVE&scheduled=true`, so only sections with a published timetable are offered, and shows "enroll by <date>" or "closed <date>" in the option label.
+- **Messages** for the new refusals `COURSE_SECTION_NOT_IN_TIMETABLE` and `ENROLLMENT_DUE_DATE_PASSED`.
+
+### Validation
+
+- `tsc --noEmit`, `eslint src`, `vite build` and `node --test tests/*.cjs` (78 passed, with new due-date cases in `tests/timetable-utils.test.cjs`). Not clicked through in a browser.

@@ -190,7 +190,7 @@ export function serverFilters(filters: TimetableFilters, view: 'meetings' | 'con
 export const meetingTypes: { value: 'LECTURE' | 'LAB' | 'TUTORIAL'; label: string }[] = [{ value: 'LECTURE', label: 'Lecture' }, { value: 'LAB', label: 'Lab' }, { value: 'TUTORIAL', label: 'Tutorial' }]
 export const meetingTypeLabel = (value: string) => meetingTypes.find(type => type.value === value)?.label ?? value
 
-export const emptyScheduleDraft: ScheduleDraft = { courseId: '', courseSectionId: '', meetingType: 'LECTURE', dayOfWeek: '', startTime: '', endTime: '', buildingId: '', roomId: '', effectiveFrom: '', effectiveTo: '', notes: '' }
+export const emptyScheduleDraft: ScheduleDraft = { courseId: '', courseSectionId: '', meetingType: 'LECTURE', dayOfWeek: '', startTime: '', endTime: '', buildingId: '', roomId: '', effectiveFrom: '', effectiveTo: '', enrollmentDueDate: '', notes: '' }
 
 export function draftFromMeeting(meeting: MeetingDetail): ScheduleDraft {
   return {
@@ -204,6 +204,7 @@ export function draftFromMeeting(meeting: MeetingDetail): ScheduleDraft {
     roomId: meeting.location.roomId ?? '',
     effectiveFrom: meeting.effectiveFrom,
     effectiveTo: meeting.effectiveTo,
+    enrollmentDueDate: meeting.enrollmentDueDate ?? '',
     notes: meeting.notes ?? '',
   }
 }
@@ -231,6 +232,10 @@ export function validateScheduleDraft(draft: ScheduleDraft, context: { term?: { 
   if (context.term && !errors.effectiveFrom && !errors.effectiveTo && (draft.effectiveFrom < context.term.startDate || draft.effectiveTo > context.term.endDate)) {
     errors.effectiveTo = `Dates must lie within the academic term (${formatDate(context.term.startDate)} – ${formatDate(context.term.endDate)}).`
   }
+  if (draft.enrollmentDueDate) {
+    if (!isIsoDate(draft.enrollmentDueDate)) errors.enrollmentDueDate = 'Enter a valid date, or leave it empty for no deadline.'
+    else if (isIsoDate(draft.effectiveFrom) && draft.enrollmentDueDate > draft.effectiveFrom) errors.enrollmentDueDate = 'The enrollment due date must not be after the Effective From date.'
+  }
   if (draft.notes.length > 2000) errors.notes = 'Use at most 2000 characters.'
   return errors
 }
@@ -247,6 +252,7 @@ export function scheduleSlotPayload(draft: ScheduleDraft) {
     effectiveFrom: draft.effectiveFrom,
     effectiveTo: draft.effectiveTo,
   }
+  if (draft.enrollmentDueDate) payload.enrollmentDueDate = draft.enrollmentDueDate
   const notes = draft.notes.trim()
   if (notes) payload.notes = notes
   return payload
@@ -262,6 +268,7 @@ export function schedulePayload(draft: ScheduleDraft) {
 export function conflictCheckPayload(draft: ScheduleDraft, meetingId?: string) {
   const slot = scheduleSlotPayload(draft)
   delete slot.notes
+  delete slot.enrollmentDueDate
   return { ...(meetingId ? { meetingId: Number(meetingId) } : {}), courseSectionId: Number(draft.courseSectionId), ...slot }
 }
 
@@ -287,6 +294,7 @@ interface ApiFailure { isAxiosError?: boolean; code?: string; response?: { statu
 const fieldForCode: Record<string, ScheduleField> = {
   TIMETABLE_INVALID_TIME: 'endTime',
   TIMETABLE_INVALID_DATE_RANGE: 'effectiveTo',
+  TIMETABLE_INVALID_ENROLLMENT_DUE_DATE: 'enrollmentDueDate',
   TIMETABLE_INVALID_WEEKDAY: 'dayOfWeek',
   TIMETABLE_ROOM_NOT_FOUND: 'roomId',
   TIMETABLE_ROOM_UNAVAILABLE: 'roomId',

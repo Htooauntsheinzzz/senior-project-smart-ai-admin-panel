@@ -99,6 +99,8 @@ export interface MeetingListItem {
   status: MeetingStatus
   effectiveFrom: string
   effectiveTo: string
+  /** Last day to enroll into the section (backend V47); null means no deadline. */
+  enrollmentDueDate: string | null
 }
 
 export interface TimetablePage<T> { content: T[]; page: number; size: number; totalElements: number; totalPages: number }
@@ -131,6 +133,7 @@ export interface MeetingDetail {
   endTime: string
   effectiveFrom: string
   effectiveTo: string
+  enrollmentDueDate: string | null
   status: MeetingStatus
   notes: string | null
   createdAt: string | null
@@ -182,6 +185,8 @@ export interface ScheduleDraft {
   roomId: string
   effectiveFrom: string
   effectiveTo: string
+  /** Optional; must not be after effectiveFrom. */
+  enrollmentDueDate: string
   notes: string
 }
 export type ScheduleField = keyof ScheduleDraft

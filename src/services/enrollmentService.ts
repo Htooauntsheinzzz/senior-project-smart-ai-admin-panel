@@ -110,6 +110,8 @@ export function enrollmentError(error: unknown) {
     ENROLLMENT_ALREADY_EXISTS: 'This student already has an enrollment for this section, including historical or deleted records.',
     STUDENT_ALREADY_ENROLLED_IN_COURSE: 'This student already holds a seat in this course for the selected semester.',
     COURSE_SECTION_FULL: 'This section is full. Pending and Active enrollments both reserve seats.',
+    COURSE_SECTION_NOT_IN_TIMETABLE: 'This section has no published timetable yet. Publish its class schedule in Timetable first.',
+    ENROLLMENT_DUE_DATE_PASSED: 'The enrollment due date of this section has passed.',
     COURSE_SECTION_NOT_AVAILABLE: 'The section is closed or unavailable.',
     ENROLLMENT_STUDENT_NOT_ELIGIBLE: 'Only active, non-deleted students can be enrolled.',
     INVALID_ENROLLMENT_STATUS_TRANSITION: 'That status transition is not allowed. Reload the enrollment.',
