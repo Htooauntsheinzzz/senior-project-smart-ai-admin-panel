@@ -8,6 +8,8 @@ import { getCampusPlaces } from '../../services/campusPlaceService'
 import { campusError } from '../../utils/campusApi'
 import { CampusTable, CodeChip, ConfirmDelete, SerialChip, SuccessToast, TableState, primaryButton } from './CampusUi'
 import { DestinationForm } from './CampusForms'
+import TablePagination from '../ui/TablePagination'
+import { usePagedRows } from '../../hooks/usePagedRows'
 
 // Destinations (AdminCampusNavigationController /destinations) link a building or campus place to the node
 // students are routed to. They also give map markers their coordinates. No Figma screen exists for them,
@@ -33,6 +35,7 @@ export function DestinationsSection({ nodes, version, disabled, onDrawerChange, 
 
   const current = data?.key === key ? data : null
   const rows = current?.rows ?? []
+  const paged = usePagedRows(rows)
   const refresh = () => { setOwn(previous => previous + 1); onChanged() }
   const dismiss = useCallback(() => setMessage(''), [])
   function openDrawer(next: { destination?: NavigationDestination } | null) { setDrawer(next); onDrawerChange(!!next) }
@@ -49,8 +52,8 @@ export function DestinationsSection({ nodes, version, disabled, onDrawerChange, 
     <CampusTable label="Destinations table" caption="Row numbers, destination buildings or places, navigation nodes, primary and accessible entrance flags, and actions" minWidth={860}
       headers={['No.', 'Destination', 'Type', 'Navigation Node', 'Primary', 'Accessible Entrance', 'Actions']}
       state={<TableState loading={!current} error={current?.error} empty={!rows.length} loadingText="Loading destinations…" emptyText="No destinations yet. Link a building or place to its entrance node so students can navigate there." onRetry={refresh} />}>
-      {rows.map((destination, index) => { const owner = destination.building ?? destination.place; return <tr key={destination.id}>
-        <td className="px-3 py-2.5"><SerialChip value={index + 1} /></td>
+      {paged.rows.map((destination, index) => { const owner = destination.building ?? destination.place; return <tr key={destination.id}>
+        <td className="px-3 py-2.5"><SerialChip value={paged.offset + index + 1} /></td>
         <th scope="row" className="px-3 py-2.5 text-xs font-semibold">{owner?.name ?? '—'}{owner && <span className="ml-1.5"><CodeChip>{owner.code}</CodeChip></span>}</th>
         <td className="px-3 py-2.5 text-xs text-[#68728a]">{destination.building ? 'Building' : 'Campus Place'}</td>
         <td className="px-3 py-2.5 text-xs">{destination.node.name}<span className="block text-[10px] text-[#68728a]">{destination.node.code}</span></td>
@@ -62,6 +65,7 @@ export function DestinationsSection({ nodes, version, disabled, onDrawerChange, 
         </div></td>
       </tr> })}
     </CampusTable>
+    {!current?.error && <TablePagination label="Destination pagination" noun="destinations" paging={paged} />}
     {drawer && <DestinationForm key={drawer.destination?.id ?? 'new-destination'} destination={drawer.destination} nodes={nodes} buildings={current?.buildings ?? []} places={current?.places ?? []}
       onClose={() => openDrawer(null)} onSaved={(name, operation) => { openDrawer(null); refresh(); setMessage(`Destination ${name} was ${operation} successfully.`) }} />}
     {deleting && <ConfirmDelete title="Remove destination?" describeError={describe} onClose={() => setDeleting(null)} onConfirm={() => deleteDestination(deleting.id)}

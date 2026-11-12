@@ -1,13 +1,13 @@
 import type { ApiLecturer } from '../../services/lecturerService'
 
-export default function LecturersTable({ lecturers, onAction, loading, error, onRetry, busy }: { lecturers: ApiLecturer[]; onAction: (lecturer: ApiLecturer) => void; loading: boolean; error?: string; onRetry: () => void; busy: boolean }) {
+export default function LecturersTable({ lecturers, offset = 0, onAction, loading, error, onRetry, busy }: { lecturers: ApiLecturer[]; offset?: number; onAction: (lecturer: ApiLecturer) => void; loading: boolean; error?: string; onRetry: () => void; busy: boolean }) {
   return <div className="overflow-hidden rounded-2xl border-[1.25px] border-[#e5e8f0] bg-white"><div role="region" aria-label="Lecturers directory" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px]">
     <table className="w-full min-w-[1100px] table-fixed text-left text-[13px] leading-[19.5px] text-[#17213c]">
       <caption className="sr-only">Row numbers, lecturers, nicknames, faculties, departments, and status</caption>
       <colgroup>{[7, 30, 13, 18, 16, 9, 7].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
       <thead className="bg-[#fafbfc] text-[#68728a]"><tr>{['No.', 'Lecturer Name', 'Nickname', 'Faculty', 'Department', 'Status', 'Actions'].map(label => <th key={label} scope="col" className="px-4 py-3.5 font-semibold">{label}</th>)}</tr></thead>
       <tbody>{lecturers.map((lecturer, index) => <tr key={lecturer.id} className="border-t-[1.25px] border-[#e5e8f0]">
-        <td className="px-4 py-3.5"><span className="inline-block rounded-lg bg-[#273238]/7 px-2 py-0.5 text-[11.5px] leading-[17.25px] font-bold text-[#273238]">{index + 1}</span></td>
+        <td className="px-4 py-3.5"><span className="inline-block rounded-lg bg-[#273238]/7 px-2 py-0.5 text-[11.5px] leading-[17.25px] font-bold text-[#273238]">{offset + index + 1}</span></td>
         <th scope="row" className="px-4 py-3.5 font-semibold">{lecturer.nameEn}<span className="block text-[11.5px] leading-[17.25px] font-normal text-[#68728a]">{lecturer.nameTh}</span></th>
         <td className="px-4 py-3.5 text-[#68728a]">{lecturer.nickname || <span aria-label="No nickname">—</span>}</td>
         <td className="px-4 py-3.5 text-[#68728a]">{lecturer.facultyNameEn.replace(/^Faculty of /, '')}</td>

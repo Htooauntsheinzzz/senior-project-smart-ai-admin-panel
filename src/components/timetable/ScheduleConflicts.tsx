@@ -2,6 +2,8 @@ import { TriangleAlert } from 'lucide-react'
 import type { ConflictList, ConflictMeeting, ConflictPair } from '../../types/timetable'
 import { conflictResource, dayName, describeConflictPair, describeConflictType, formatDate, formatTimeRange12 } from '../../utils/timetable'
 import { ActionMenu, Badge, CampusTable, CodeChip, SerialChip, TableState } from '../campus/CampusUi'
+import TablePagination from '../ui/TablePagination'
+import { usePagedRows } from '../../hooks/usePagedRows'
 
 // Schedule Conflicts tab (spec 40 §15, a design extension: Figma only shows the tab and a sample badge). Every row is a
 // pair reported by GET /timetable/conflicts; nothing is computed client-side, and an unavailable result is shown as such.
@@ -22,6 +24,7 @@ export default function ScheduleConflicts({ data, loading, error, onRetry, cours
   onEdit: (meetingId: string) => void
 }) {
   const rows = data?.conflicts ?? []
+  const paged = usePagedRows(rows)
   return <section aria-label="Schedule conflicts" aria-busy={loading || undefined} className="p-4 sm:p-7">
     <div className="mb-3 flex items-start gap-2 text-[13px] leading-5 text-[#68728a]">
       <TriangleAlert size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-[#b45309]" />
@@ -29,7 +32,8 @@ export default function ScheduleConflicts({ data, loading, error, onRetry, cours
     </div>
     <CampusTable label="Schedule conflicts" caption="Published class schedules that overlap: conflict type, the two schedules involved, the overlapping time, the shared resource and an explanation." headers={['No.', 'Conflict Type', 'Affected Schedules', 'Day & Overlap', 'Room / Lecturer / Section', 'Explanation', 'Actions']} minWidth={1200}
       state={<TableState loading={loading} error={error ? `Conflict information is unavailable. ${error}` : undefined} empty={!rows.length} loadingText="Checking published schedules for conflicts…" emptyText={data ? 'No conflicts among the published schedules in this scope.' : 'Conflict information is unavailable.'} onRetry={onRetry} />}>
-      {rows.map((pair, index) => {
+      {paged.rows.map((pair, i) => {
+        const index = paged.offset + i
         const tone = typeTone(pair.type)
         return <tr key={`${pair.type}-${pair.meetingA.meetingId}-${pair.meetingB.meetingId}-${pair.firstDate}`} className={loading ? 'opacity-60' : undefined}>
           <td className="px-3.5 py-2.5 align-top"><SerialChip value={index + 1} /></td>
@@ -47,5 +51,6 @@ export default function ScheduleConflicts({ data, loading, error, onRetry, cours
         </tr>
       })}
     </CampusTable>
+    {!error && <TablePagination label="Conflict pagination" noun="conflicts" paging={paged} />}
   </section>
 }

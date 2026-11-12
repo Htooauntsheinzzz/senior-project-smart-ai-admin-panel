@@ -22,7 +22,7 @@ function harness() {
   return { calls, load, respond: next => { handler = next } }
 }
 
-const page = (content, extra = {}) => ({ data: { content, page: 0, size: 20, totalElements: content.length, totalPages: 1, ...extra } })
+const page = (content, extra = {}) => ({ data: { content, page: 0, size: 10, totalElements: content.length, totalPages: 1, ...extra } })
 const event = { meetingId: 11, courseSectionId: 7, courseCode: 'CS301', courseName: 'Data Structures', sectionNumber: '01', lecturerId: 3, lecturerName: 'Dr. W', facultyId: 1, departmentId: 2, roomId: 5, roomNumber: 'IT-301', buildingId: 4, buildingName: 'IT Building', campusId: 1, meetingType: 'LECTURE', date: '2026-11-11', startsAt: '2026-11-11T08:30:00+07:00', endsAt: '2026-11-11T10:00:00+07:00', status: 'PUBLISHED', occurrenceStatus: 'REGULAR', exceptionId: null, originalDate: null }
 const item = { id: 11, courseSectionId: 7, courseCode: 'CS301', courseName: 'Data Structures', sectionNumber: '01', facultyId: 1, facultyName: 'IT', departmentId: 2, departmentName: 'SE', lecturerId: 3, lecturerName: 'Dr. W', academicTermId: 3, academicYearLabel: '2025–2026', semesterName: 'Semester 1', dayOfWeek: 3, dayName: 'Wednesday', startTime: '08:30:00', endTime: '10:00:00', campusId: 1, campusName: 'Main', buildingId: 4, buildingName: 'IT Building', roomId: 5, roomNumber: 'IT-301', legacyRoomLabel: null, meetingType: 'LECTURE', status: 'DRAFT', effectiveFrom: '2026-08-10', effectiveTo: '2026-12-11' }
 const detail = { id: 11, courseSection: { id: 7, code: '01', name: 'ACTIVE' }, course: { id: 9, code: 'CS301', name: 'Data Structures' }, academicTerm: { id: 3, semesterId: 2, semesterName: 'Semester 1', semesterNameTh: 'ภาคเรียนที่ 1', academicYearCode: '2568', academicYearLabel: '2025–2026', startDate: '2026-08-10', endDate: '2026-12-11', status: 'ACTIVE' }, faculty: { id: 1, code: 'IT', name: 'Faculty of Information Technology' }, department: { id: 2, code: 'SE', name: 'Software Engineering' }, lecturer: { id: 3, code: 'L3', name: 'Dr. W' }, location: { campusId: 1, campusName: 'Main', buildingId: 4, buildingCode: 'IT', buildingName: 'IT Building', roomId: 5, roomNumber: 'IT-301', roomName: null, floorNumber: 3, capacity: 40, legacyRoomLabel: null }, meetingType: 'LAB', dayOfWeek: 3, dayName: 'Wednesday', startTime: '08:30:00', endTime: '10:00:00', effectiveFrom: '2026-08-10', effectiveTo: '2026-12-11', status: 'DRAFT', notes: null, createdAt: '2026-11-09T10:00:00Z', updatedAt: null }
@@ -56,7 +56,7 @@ test('meetings list sends repeated sort parameters and maps the plain page', asy
   const url = new URL(`http://x${h.calls[0].args[0]}`)
   assert.equal(url.pathname, '/timetable/meetings')
   assert.deepEqual(url.searchParams.getAll('sort'), ['lecturerName,desc', 'dayOfWeek,asc'])
-  assert.equal(url.searchParams.get('page'), '1'); assert.equal(url.searchParams.get('size'), '20')
+  assert.equal(url.searchParams.get('page'), '1'); assert.equal(url.searchParams.get('size'), '10')
   assert.equal(url.searchParams.get('academicTermId'), '3'); assert.equal(url.searchParams.get('courseId'), '9'); assert.equal(url.searchParams.has('departmentId'), false)
   assert.equal(result.content[0].id, '11'); assert.equal(result.content[0].startTime, '08:30'); assert.equal(result.content[0].academicYearLabel, '2025–2026'); assert.equal(result.totalElements, 1)
   h.respond(async () => page([item]))

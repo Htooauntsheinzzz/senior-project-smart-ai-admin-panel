@@ -8,12 +8,15 @@ import CourseFilters from './CourseFilters'
 import CourseSummaryCards from './CourseSummaryCards'
 import CoursesTable from './CoursesTable'
 import CourseActions from './CourseActions'
+import TablePagination from '../ui/TablePagination'
+import { usePagedRows } from '../../hooks/usePagedRows'
 
 export default function CoursesContent() {
   const { courses, apiCourses, state, summary, retry, filters, setFilters, message, setMessage } = useOutletContext<CourseCatalogContext>()
   const navigate = useNavigate()
   const [selected, setSelected] = useState<ApiCourse | null>(null)
   const filtered = filterCourses(courses, filters)
+  const paged = usePagedRows(filtered, JSON.stringify(filters))
   function changeFilter(key: keyof Filters, value: string) { setFilters(previous => changeCourseFilter(previous, key, value, courses)) }
   function exportCourses() {
     try {
@@ -34,8 +37,8 @@ export default function CoursesContent() {
     </div></header>
     <CourseSummaryCards summary={summary} ready={state === 'ready'} />
     <CourseFilters courses={courses} filters={filters} onChange={changeFilter} disabled={state === 'loading'} semesters={[]} />
-    <div className="px-4 pb-6 sm:px-7"><CoursesTable courses={filtered} state={state} onRetry={retry} onClear={() => setFilters({ ...emptyCourseFilters })} onAction={course => setSelected(apiCourses.find(c => c.id === course.id) ?? null)} />
-      {state === 'ready' && <p role="status" className="pt-3 text-[12.5px] leading-[18.75px] text-[#68728a]">Showing <strong className="font-bold text-[#17213c]">{filtered.length}</strong> of <strong className="font-bold text-[#17213c]">{courses.length}</strong> courses</p>}
+    <div className="px-4 pb-6 sm:px-7"><CoursesTable courses={paged.rows} state={state} onRetry={retry} onClear={() => setFilters({ ...emptyCourseFilters })} onAction={course => setSelected(apiCourses.find(c => c.id === course.id) ?? null)} />
+      {state === 'ready' && <TablePagination label="Course pagination" noun={filtered.length === courses.length ? 'courses' : `filtered courses (${courses.length} total)`} paging={paged} />}
       <p role="status" className="mt-2 text-[13px] leading-5 text-[#68728a]">{message}</p></div>
     {selected && <CourseActions key={selected.id} id={selected.id} onClose={() => setSelected(null)} onEdit={course => { setSelected(null); navigate('/admin/courses/new', { state: { editCourse: course } }) }} onDeleted={() => { setSelected(null); setMessage('Course deleted successfully. Refreshing server data.'); retry() }} />}
   </main>

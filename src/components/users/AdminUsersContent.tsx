@@ -8,8 +8,9 @@ import { deleteUser, getUserById, getUsers, isValidUserId, type AdminUserPage, t
 import AdminUsersTable from './AdminUsersTable'
 import Modal from '../ui/Modal'
 import { Panel } from '../dashboard/DashboardUi'
+import { TABLE_PAGE_SIZE } from '../../utils/pagination'
 
-const PAGE_SIZE = 8
+const PAGE_SIZE = TABLE_PAGE_SIZE
 
 function toRow(user: AdminUserSummary): AdminUser {
   const primaryRole = user.roles.find(role => role.isActive !== false) ?? user.roles[0]

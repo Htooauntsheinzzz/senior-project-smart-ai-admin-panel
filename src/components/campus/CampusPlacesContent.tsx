@@ -6,6 +6,8 @@ import { getAllBuildings } from '../../services/buildingService'
 import { campusError, categoryVisual, formatHours, placeStatuses } from '../../utils/campusApi'
 import { ActionMenu, Badge, CampusTable, CodeChip, ConfirmDelete, DetailsModal, FilterSelect, PageHeader, SearchInput, SerialChip, SuccessToast, SummaryCards, TableState, primaryButton } from './CampusUi'
 import { PlaceForm } from './CampusForms'
+import TablePagination from '../ui/TablePagination'
+import { usePagedRows } from '../../hooks/usePagedRows'
 
 const describe = (error: unknown) => campusError(error, 'Campus place not found.')
 
@@ -55,6 +57,7 @@ export default function CampusPlacesContent({ onDrawerChange }: { onDrawerChange
   const totals = stats?.version === version ? stats : null
   const all = current?.rows ?? []
   const places = category ? all.filter(place => String(place.category.id) === category) : all
+  const paged = usePagedRows(places, JSON.stringify([search, status, category]))
   const refresh = () => setVersion(previous => previous + 1)
   const dismiss = useCallback(() => setMessage(''), [])
   function openDrawer(next: { place?: CampusPlace } | null) { setDrawer(next); onDrawerChange(!!next) }
@@ -101,12 +104,12 @@ export default function CampusPlacesContent({ onDrawerChange }: { onDrawerChange
       {actionError && <p role="alert" className="mb-3 text-[13px] text-[#d80255]">{actionError} <button type="button" onClick={() => setActionError('')} className="underline">Dismiss</button></p>}
       {viewMode === 'cards' ? <>
         {(!current || current.error || !places.length) && <div className="rounded-[14px] border-[1.25px] border-[#e5e8f0] bg-white"><TableState loading={!current} error={current?.error} empty={!places.length} loadingText="Loading campus places…" emptyText="No campus places found." onRetry={refresh} /></div>}
-        {!!places.length && <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">{places.map(place => <li key={place.id}><PlaceCard place={place} actions={actions(place)} disabled={!!drawer} /></li>)}</ul>}
+        {!!places.length && <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">{paged.rows.map(place => <li key={place.id}><PlaceCard place={place} actions={actions(place)} disabled={!!drawer} /></li>)}</ul>}
       </> : <CampusTable label="Campus places table" caption="Row numbers, place names, categories, buildings, floors, hours, phone numbers, status and actions" minWidth={1100}
         headers={['No.', 'Place', 'Category', 'Building', 'Floor', 'Hours', 'Phone', 'Status', 'Actions']}
         state={<TableState loading={!current} error={current?.error} empty={!places.length} loadingText="Loading campus places…" emptyText="No campus places found." onRetry={refresh} />}>
-        {places.map((place, index) => { const s = placeStatuses[place.status], c = categoryVisual(place.category.name); return <tr key={place.id}>
-          <td className="px-3.5 py-3"><SerialChip value={index + 1} /></td>
+        {paged.rows.map((place, index) => { const s = placeStatuses[place.status], c = categoryVisual(place.category.name); return <tr key={place.id}>
+          <td className="px-3.5 py-3"><SerialChip value={paged.offset + index + 1} /></td>
           <th scope="row" className="px-3.5 py-3 font-semibold">{place.placeName}{place.isPopular && <span className="ml-2 rounded-full border border-[#fde68a] bg-[#fef3c7] px-1.5 py-px text-[10px] font-bold text-[#b45309]">⭐ Popular</span>}<span className="block text-[11px] font-normal text-[#68728a]"><CodeChip>{place.placeCode}</CodeChip></span></th>
           <td className="px-3.5 py-3"><Badge bg={c.bg} text={c.tag}>{c.icon} {place.category.name}</Badge></td>
           <td className="px-3.5 py-3 text-xs">{place.building?.name ?? '—'}</td>
@@ -117,6 +120,7 @@ export default function CampusPlacesContent({ onDrawerChange }: { onDrawerChange
           <td className="px-3.5 py-3"><ActionMenu label={`Actions for ${place.placeName}`} disabled={!!drawer} items={actions(place)} /></td>
         </tr> })}
       </CampusTable>}
+      {!current?.error && <TablePagination label="Campus place pagination" noun="places" paging={paged} />}
     </section>
     {drawer && <PlaceForm key={drawer.place?.id ?? 'new'} place={drawer.place} {...lookups} onClose={() => openDrawer(null)} onSaved={(name, operation, warning) => { openDrawer(null); refresh(); setMessage(`${name} was ${operation} successfully.${warning ? ` ${warning}` : ''}`) }} />}
     {viewing != null && <DetailsModal<CampusPlace> title="Campus Place Details" describeError={describe} load={signal => getCampusPlaceById(viewing, signal)} onClose={() => setViewing(null)}

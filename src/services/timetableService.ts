@@ -216,7 +216,7 @@ export async function getTimetableCalendar(params: MeetingQueryParams & { weekSt
   return mapCalendarWeek(data)
 }
 
-export const LIST_PAGE_SIZE = 20
+export const LIST_PAGE_SIZE = 10 // same as TABLE_PAGE_SIZE: every admin table shows 10 rows per page
 
 export async function getTimetableMeetings(params: MeetingQueryParams & { page: number; size?: number; sort?: ListSort; search?: string }, signal?: AbortSignal): Promise<TimetablePage<MeetingListItem>> {
   checkIds(params)

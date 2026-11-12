@@ -55,11 +55,7 @@ export function termSemesterOptions(terms: AcademicTerm[]) {
   return [...seen].map(([value, label]) => ({ value, label }))
 }
 
-export function paginate<T>(rows: T[], page: number, size: number) {
-  const pageCount = Math.max(1, Math.ceil(rows.length / size))
-  const current = Math.min(Math.max(1, page), pageCount)
-  return { page: current, pageCount, rows: rows.slice((current - 1) * size, current * size) }
-}
+export { paginate } from './pagination'
 
 /** Quick status change offered in the row menu (PATCH /academic-terms/{id}/status). */
 export function statusActions(status: TermStatus): { status: TermStatus; label: string }[] {

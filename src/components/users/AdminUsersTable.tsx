@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
 import type { AdminUser } from '../../types/adminUser'
 import { Badge } from '../dashboard/DashboardUi'
+import { TABLE_PAGE_SIZE } from '../../utils/pagination'
 
 const roleColors: Record<string, string> = {
   'Super Admin': 'bg-[#fee2e2] text-[#ff0000]',
@@ -16,7 +17,7 @@ const avatars = ['from-[#e48100] to-[#7567f5]', 'from-[#00b4e5] to-[#2860fa]', '
 export default function AdminUsersTable({ users, total, activeCount, inactiveCount, loading, error, onRetry, page, pageCount, onPage, onDetails }: {
   users: AdminUser[]; total: number; activeCount: number; inactiveCount: number; loading: boolean; error: string; onRetry: () => void; page: number; pageCount: number; onPage: (page: number) => void; onDetails: (user: AdminUser) => void
 }) {
-  const start = total ? (page - 1) * 8 + 1 : 0
+  const start = total ? (page - 1) * TABLE_PAGE_SIZE + 1 : 0
   const paginationButton = 'flex size-8 items-center justify-center rounded-lg border border-[#e5e8f0] text-xs font-medium text-[#68728a] hover:bg-[#f7f8fc] focus-visible:outline-2 disabled:cursor-default disabled:opacity-40'
   return <section aria-label="Admin users list" className="overflow-hidden rounded-2xl border border-[#e5e8f0] bg-white">
     <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 px-5 py-3 text-xs text-[#68728a]">

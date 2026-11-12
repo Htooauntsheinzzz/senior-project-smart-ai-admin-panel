@@ -11,6 +11,7 @@ export const degrees: Degree[] = [
   { id: 'bns', name: 'Bachelor of Nursing Science', background: '#FCE7F3', color: '#DB2777' },
   { id: 'bpharm', name: 'Bachelor of Pharmacy', background: '#FEE2E2', color: '#DC2626' },
   { id: 'ba', name: 'Bachelor of Arts', background: '#EDE9FE', color: '#7C3AED' },
+  { id: 'ge', name: 'General Education', background: '#CCFBF1', color: '#0F766E' },
 ]
 // Configured demo options; the reference does not reveal the select's choices.
 export const programDurations = [1, 2, 3, 4, 5, 6]

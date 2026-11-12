@@ -8,6 +8,8 @@ export default function KnowledgeBasePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  // The upload/edit drawer is non-modal on wide screens, so the page makes room for it.
+  const [drawerOpen, setDrawerOpen] = useState(false)
   async function handleLogout() {
     if (isLoggingOut) return
     setIsLoggingOut(true)
@@ -15,5 +17,7 @@ export default function KnowledgeBasePage() {
       // AuthProvider clears the local session even if server logout fails.
     } finally { setIsLoggingOut(false); navigate('/login', { replace: true }) }
   }
-  return <AdminLayout onLogout={handleLogout} isLoggingOut={isLoggingOut} email={user?.email}><KnowledgeBaseContent /></AdminLayout>
+  return <div className={drawerOpen ? 'xl:pr-[480px]' : undefined}>
+    <AdminLayout onLogout={handleLogout} isLoggingOut={isLoggingOut} email={user?.email}><KnowledgeBaseContent onDrawerChange={setDrawerOpen} /></AdminLayout>
+  </div>
 }

@@ -1,5 +1,6 @@
 import apiClient from '../api/apiClient'
 import type { ProgramDraft, ProgramFilters } from '../types/program'
+import { degrees } from '../data/programs'
 
 export type ApiProgram = {
   id: string
@@ -104,7 +105,8 @@ export async function getProgramDirectory(filters: ProgramFilters, signal?: Abor
       search: filters.query.trim() || undefined,
       facultyId: filters.facultyId ? Number(filters.facultyId) : undefined,
       departmentId: filters.departmentId ? Number(filters.departmentId) : undefined,
-      degreeLevel: filters.degreeId.trim() || undefined,
+      // The filter select holds a degree id; the API filters by the stored degree name.
+      degreeLevel: (degrees.find(d => d.id === filters.degreeId)?.name ?? filters.degreeId.trim()) || undefined,
       status: filters.status ? filters.status.toUpperCase() : undefined,
     }, signal)
     if (!data || !Array.isArray(data.content) || data.page !== page || data.size !== 100 || !count(data.totalElements) || !count(data.totalPages)) throw new Error('Unexpected program page response.')

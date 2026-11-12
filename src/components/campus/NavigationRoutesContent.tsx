@@ -7,6 +7,8 @@ import { campusError, edgeStatuses, formatDistance, nodeTypes, project, surfaceT
 import { Badge, CampusTable, CodeChip, ConfirmDelete, DetailsModal, PageHeader, SerialChip, SuccessToast, SummaryCards, TableState, primaryButton, secondaryButton } from './CampusUi'
 import { NodeForm, RouteForm } from './CampusForms'
 import { DestinationsSection, GraphCheckModal } from './NavigationDestinations'
+import TablePagination from '../ui/TablePagination'
+import { usePagedRows } from '../../hooks/usePagedRows'
 
 // Figma node 121:5185 (Navigation Screen).
 const describe = (error: unknown) => campusError(error, 'Navigation record not found.')
@@ -64,6 +66,7 @@ export default function NavigationRoutesContent({ onDrawerChange }: { onDrawerCh
   const totals = stats?.version === version ? stats : null
   const rows = currentRoutes?.rows ?? []
   const nodeRows = currentNodes?.rows ?? []
+  const pagedRoutes = usePagedRows(rows, filter)
   // Every node or route mutation refetches nodes, routes and statistics together.
   const refresh = () => setVersion(previous => previous + 1)
   const dismiss = useCallback(() => setMessage(''), [])
@@ -114,8 +117,8 @@ export default function NavigationRoutesContent({ onDrawerChange }: { onDrawerCh
         <CampusTable title="Route List" label="Route list table" caption="Row numbers, route codes, start and end nodes, distance, walk time, accessibility, surface, status and actions" minWidth={1100}
           headers={['No.', 'Route Code', 'Start Node', 'End Node', 'Distance', 'Walk Time', 'Accessible', 'Surface', 'Status', 'Actions']}
           state={<TableState loading={!currentRoutes} error={currentRoutes?.error} empty={!rows.length} loadingText="Loading routes…" emptyText="No routes found." onRetry={refresh} />}>
-          {rows.map((route, index) => { const s = edgeStatuses[route.status]; return <tr key={route.id}>
-            <td className="px-3 py-2.5"><SerialChip value={index + 1} /></td>
+          {pagedRoutes.rows.map((route, index) => { const s = edgeStatuses[route.status]; return <tr key={route.id}>
+            <td className="px-3 py-2.5"><SerialChip value={pagedRoutes.offset + index + 1} /></td>
             <td className="px-3 py-2.5"><CodeChip>{route.edgeCode}</CodeChip></td>
             <th scope="row" className="px-3 py-2.5 text-xs font-normal">{route.startNode.name}</th>
             <td className="px-3 py-2.5 text-xs">{route.endNode.name}{!route.isBidirectional && <span className="block text-[10px] text-[#68728a]">One-way</span>}</td>
@@ -130,6 +133,7 @@ export default function NavigationRoutesContent({ onDrawerChange }: { onDrawerCh
             </div></td>
           </tr> })}
         </CampusTable>
+        {!currentRoutes?.error && <TablePagination label="Route pagination" noun="routes" paging={pagedRoutes} />}
         <DestinationsSection nodes={nodes?.rows ?? []} version={version} disabled={!!drawer} onDrawerChange={destinationDrawerChange} onChanged={refresh} />
       </div>
     </div>

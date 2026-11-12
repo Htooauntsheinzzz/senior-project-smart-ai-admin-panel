@@ -110,7 +110,13 @@ export function facilityIcon(facility: { code: string; name: string }) {
 const positiveId = /^[1-9]\d{0,15}$/
 export const isPositiveId = (value: string) => positiveId.test(value) && Number.isSafeInteger(Number(value))
 const decimal = (value: string, integer: number, fraction: number) => new RegExp(`^\\d{1,${integer}}(\\.\\d{1,${fraction}})?$`).test(value.trim())
-const coordinate = (value: string) => /^-?\d{1,3}(\.\d{1,10})?$/.test(value.trim())
+// Up to 15 decimal places, matching the backend NUMERIC(18,15) columns (V55), so values pasted
+// from Google Maps such as 13.964438098079592 are accepted as typed.
+const COORDINATE_DECIMALS = 15
+const coordinate = (value: string) => new RegExp(`^-?\\d{1,3}(\\.\\d{1,${COORDINATE_DECIMALS}})?$`).test(value.trim())
+const coordinateError = (value: string, max: number, label: string) =>
+  !coordinate(value) ? `Enter ${label.toLowerCase()} as a number with at most ${COORDINATE_DECIMALS} decimal places.`
+    : Math.abs(Number(value)) > max ? `${label} must be between -${max} and ${max}.` : ''
 
 type Errors<T> = Partial<Record<keyof T, string>>
 
@@ -181,8 +187,8 @@ export function validateNode(value: NodeDraft, needsSite: boolean) {
   if (!value.nodeType) errors.nodeType = 'Select a node type.'
   const lat = value.latitude.trim(), lng = value.longitude.trim()
   if (!!lat !== !!lng) { if (!lat) errors.latitude = 'Enter both latitude and longitude, or leave both blank.'; else errors.longitude = 'Enter both latitude and longitude, or leave both blank.' }
-  if (lat && (!coordinate(lat) || Math.abs(Number(lat)) > 90)) errors.latitude = 'Latitude must be between -90 and 90.'
-  if (lng && (!coordinate(lng) || Math.abs(Number(lng)) > 180)) errors.longitude = 'Longitude must be between -180 and 180.'
+  if (lat && coordinateError(lat, 90, 'Latitude')) errors.latitude = coordinateError(lat, 90, 'Latitude')
+  if (lng && coordinateError(lng, 180, 'Longitude')) errors.longitude = coordinateError(lng, 180, 'Longitude')
   return errors
 }
 
@@ -304,8 +310,8 @@ export function validateSite(value: SiteDraft) {
   }
   const lat = value.centerLatitude.trim(), lng = value.centerLongitude.trim()
   if (!!lat !== !!lng) errors[lat ? 'centerLongitude' : 'centerLatitude'] = 'Enter both latitude and longitude, or leave both blank.'
-  if (lat && (!coordinate(lat) || Math.abs(Number(lat)) > 90)) errors.centerLatitude = 'Latitude must be between -90 and 90.'
-  if (lng && (!coordinate(lng) || Math.abs(Number(lng)) > 180)) errors.centerLongitude = 'Longitude must be between -180 and 180.'
+  if (lat && coordinateError(lat, 90, 'Latitude')) errors.centerLatitude = coordinateError(lat, 90, 'Latitude')
+  if (lng && coordinateError(lng, 180, 'Longitude')) errors.centerLongitude = coordinateError(lng, 180, 'Longitude')
   return errors
 }
 

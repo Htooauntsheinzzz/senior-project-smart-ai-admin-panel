@@ -5,6 +5,8 @@ import { deleteCampusSite, getAllCampusSites } from '../../services/campusSetupS
 import { buildingStatuses, campusError, mobileGroups } from '../../utils/campusApi'
 import { ActionMenu, Badge, CampusTable, CodeChip, ConfirmDelete, PageHeader, SearchInput, SerialChip, SuccessToast, SummaryCards, TableState, primaryButton } from './CampusUi'
 import { CategoryForm, FacilityForm, SiteForm } from './CampusForms'
+import TablePagination from '../ui/TablePagination'
+import { usePagedRows } from '../../hooks/usePagedRows'
 
 // Campus Setup: the lookups every other campus screen depends on (spec 52 has no Figma screen for them,
 // so this page reuses the Buildings layout). Backend: AdminCampusSiteController + AdminCampusCatalogController.
@@ -46,6 +48,9 @@ export default function CampusSetupContent({ onDrawerChange }: { onDrawerChange:
   const sites = (current?.sites ?? []).filter(s => matches(search, s.siteCode, s.siteName))
   const categories = (current?.categories ?? []).filter(c => matches(search, c.categoryCode, c.categoryName, mobileGroups[c.mobileGroup]))
   const facilities = (current?.facilities ?? []).filter(f => matches(search, f.facilityCode, f.facilityName))
+  const pagedSites = usePagedRows(sites, `${tab}|${search}`)
+  const pagedCategories = usePagedRows(categories, `${tab}|${search}`)
+  const pagedFacilities = usePagedRows(facilities, `${tab}|${search}`)
   const active = tabs.find(t => t.key === tab) ?? tabs[0]
   const count = { sites: current?.sites?.length, categories: current?.categories?.length, facilities: current?.facilities?.length }
   const state = (empty: boolean, noun: string, hint: string) => <TableState loading={!current} error={current?.error} empty={empty} loadingText={`Loading ${noun}…`} emptyText={search.trim() ? `No ${noun} match your search.` : hint} onRetry={refresh} />
@@ -74,8 +79,8 @@ export default function CampusSetupContent({ onDrawerChange }: { onDrawerChange:
       {tab === 'sites' && <CampusTable label="Campuses table" caption="Row numbers, campus codes, names, timezones, center coordinates, status and actions" minWidth={860}
         headers={['No.', 'Campus Code', 'Campus Name', 'Timezone', 'Center', 'Status', 'Actions']}
         state={state(!sites.length, 'campuses', 'No campuses yet. Add the first campus before adding buildings, places or navigation nodes.')}>
-        {sites.map((site, index) => <tr key={site.id}>
-          <td className="px-3.5 py-3"><SerialChip value={index + 1} /></td>
+        {pagedSites.rows.map((site, index) => <tr key={site.id}>
+          <td className="px-3.5 py-3"><SerialChip value={pagedSites.offset + index + 1} /></td>
           <td className="px-3.5 py-3"><CodeChip>{site.siteCode}</CodeChip></td>
           <th scope="row" className="px-3.5 py-3 font-semibold">{site.siteName}{site.description && <span className="block max-w-[320px] truncate text-[11px] font-normal text-[#68728a]">{site.description}</span>}</th>
           <td className="px-3.5 py-3 text-[#68728a]">{site.timezone}</td>
@@ -90,8 +95,8 @@ export default function CampusSetupContent({ onDrawerChange }: { onDrawerChange:
       {tab === 'categories' && <CampusTable label="Place categories table" caption="Row numbers, category codes, names, mobile app groups, status and actions" minWidth={760}
         headers={['No.', 'Category Code', 'Category Name', 'Mobile App Group', 'Status', 'Actions']}
         state={state(!categories.length, 'place categories', 'No place categories yet. Add one, such as Library or Cafeteria, before adding campus places.')}>
-        {categories.map((category, index) => <tr key={category.id}>
-          <td className="px-3.5 py-3"><SerialChip value={index + 1} /></td>
+        {pagedCategories.rows.map((category, index) => <tr key={category.id}>
+          <td className="px-3.5 py-3"><SerialChip value={pagedCategories.offset + index + 1} /></td>
           <td className="px-3.5 py-3"><CodeChip>{category.categoryCode}</CodeChip></td>
           <th scope="row" className="px-3.5 py-3 font-semibold">{category.categoryName}</th>
           <td className="px-3.5 py-3">{mobileGroups[category.mobileGroup] ?? category.mobileGroup}</td>
@@ -102,8 +107,8 @@ export default function CampusSetupContent({ onDrawerChange }: { onDrawerChange:
       {tab === 'facilities' && <CampusTable label="Facilities table" caption="Row numbers, facility codes, names, descriptions, status and actions" minWidth={760}
         headers={['No.', 'Facility Code', 'Facility Name', 'Description', 'Status', 'Actions']}
         state={state(!facilities.length, 'facilities', 'No facilities yet. Add one, such as Projector or Wi-Fi, to attach it to rooms and places.')}>
-        {facilities.map((facility, index) => <tr key={facility.id}>
-          <td className="px-3.5 py-3"><SerialChip value={index + 1} /></td>
+        {pagedFacilities.rows.map((facility, index) => <tr key={facility.id}>
+          <td className="px-3.5 py-3"><SerialChip value={pagedFacilities.offset + index + 1} /></td>
           <td className="px-3.5 py-3"><CodeChip>{facility.facilityCode}</CodeChip></td>
           <th scope="row" className="px-3.5 py-3 font-semibold">{facility.facilityName}</th>
           <td className="px-3.5 py-3 text-[#68728a]">{facility.description || '—'}</td>
@@ -111,6 +116,7 @@ export default function CampusSetupContent({ onDrawerChange }: { onDrawerChange:
           <td className="px-3.5 py-3"><button type="button" disabled={!!drawer} onClick={() => openDrawer({ tab: 'facilities', record: facility })} aria-label={`Edit ${facility.facilityName}`} className="h-[30.5px] rounded-[7px] border-[1.25px] border-[#e5e8f0] bg-white px-3 text-xs font-semibold hover:bg-[#f7f8fc] focus-visible:outline-2 disabled:opacity-50">Edit</button></td>
         </tr>)}
       </CampusTable>}
+      {!current?.error && <TablePagination label={`${active.label} pagination`} noun={active.label.toLowerCase()} paging={tab === 'sites' ? pagedSites : tab === 'categories' ? pagedCategories : pagedFacilities} />}
     </section>
     {drawer?.tab === 'sites' && <SiteForm key={drawer.record?.id ?? 'new'} site={drawer.record} onClose={() => openDrawer(null)} onSaved={saved} />}
     {drawer?.tab === 'categories' && <CategoryForm key={drawer.record?.id ?? 'new'} category={drawer.record} onClose={() => openDrawer(null)} onSaved={saved} />}

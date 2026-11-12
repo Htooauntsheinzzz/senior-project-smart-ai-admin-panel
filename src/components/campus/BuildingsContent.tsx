@@ -6,8 +6,9 @@ import { getCampusSites } from '../../services/campusMapService'
 import { buildingStatuses, campusError, formatArea, formatHours } from '../../utils/campusApi'
 import { ActionMenu, Badge, CampusTable, CodeChip, ConfirmDelete, DetailsModal, FilterSelect, PageHeader, SearchInput, SerialChip, SuccessToast, SummaryCards, TableState, primaryButton } from './CampusUi'
 import { BuildingForm } from './CampusForms'
+import { TABLE_PAGE_SIZE } from '../../utils/pagination'
 
-const PAGE_SIZE = 8
+const PAGE_SIZE = TABLE_PAGE_SIZE
 const describe = (error: unknown) => campusError(error, 'Building not found.')
 
 export default function BuildingsContent({ onDrawerChange }: { onDrawerChange: (open: boolean) => void }) {
