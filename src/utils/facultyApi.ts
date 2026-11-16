@@ -3,7 +3,7 @@ import type { FacultyInput } from '../types/faculty'
 export function validateFacultyForm(value: FacultyInput) {
   const errors: Partial<Record<keyof FacultyInput, string>> = {}
   if (!value.code.trim()) errors.code = 'Faculty code is required.'
-  else if (value.code.trim().length > 30 || !/^[A-Z0-9-]+$/.test(value.code.trim())) errors.code = 'Use at most 30 uppercase letters, numbers, or hyphens.'
+  else if (value.code.trim().length > 30 || !/^[A-Za-z0-9 -]+$/.test(value.code.trim())) errors.code = 'Use at most 30 letters, numbers, spaces, or hyphens.'
   if (!value.nameEn.trim()) errors.nameEn = 'English faculty name is required.'
   else if (value.nameEn.trim().length > 255) errors.nameEn = 'Use at most 255 characters.'
   if (value.nameTh.trim().length > 255) errors.nameTh = 'Use at most 255 characters.'

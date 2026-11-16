@@ -14,11 +14,17 @@ export type ApiSection = {
   lectureNameTh: string
   lectureNameEn: string
   lectureNickname?: string
-  room: string | null
-  schedule: string | null
   semesterId: string
   semesterNameTh: string
   semesterNameEn: string
+  // Backend spec 44: on the published timetable, and whether its enrollment due date is still open.
+  scheduled?: boolean
+  enrollmentDueDate?: string
+  enrollmentOpen?: boolean
+  // Optional year-specific term (Flyway V41); required before a section can appear on the timetable.
+  academicTermId: string | null
+  academicYearCode: string | null
+  academicYearLabel: string | null
   status: 'ACTIVE' | 'CLOSED'
 }
 
@@ -41,7 +47,7 @@ export function sectionPayload(value: Record<string, string>) {
   if (!/^[1-9]\d*$/.test(value.courseId) || !Number.isSafeInteger(Number(value.courseId))) throw new Error('Invalid course ID.')
   if (!/^[1-9]\d*$/.test(value.lecturerId) || !Number.isSafeInteger(Number(value.lecturerId))) throw new Error('Invalid lecturer ID.')
   if (!/^[1-9]\d*$/.test(value.semester) || !Number.isSafeInteger(Number(value.semester))) throw new Error('Invalid semester ID.')
-  if (!['active', 'closed'].includes(value.status) || !value.number.trim() || value.number.trim().length > 20 || value.room.trim().length > 100 || value.schedule.trim().length > 255) throw new Error('Invalid section values.')
+  if (!['active', 'closed'].includes(value.status) || !value.number.trim() || value.number.trim().length > 20) throw new Error('Invalid section values.')
   const payload: Record<string, unknown> = {
     courseId: Number(value.courseId),
     sectionNumber: value.number.trim(),
@@ -54,10 +60,10 @@ export function sectionPayload(value: Record<string, string>) {
     if (!/^\d+$/.test(value.capacity.trim()) || !Number.isSafeInteger(cap) || cap <= 0 || cap > 2147483647) throw new Error('Invalid capacity.')
     payload.capacity = cap
   }
-  const room = value.room.trim() || null
-  if (room) payload.room = room
-  const schedule = value.schedule.trim() || null
-  if (schedule) payload.schedule = schedule
+  if (value.academicTermId) {
+    if (!/^[1-9]\d*$/.test(value.academicTermId) || !Number.isSafeInteger(Number(value.academicTermId))) throw new Error('Invalid academic term ID.')
+    payload.academicTermId = Number(value.academicTermId)
+  }
   return payload
 }
 
@@ -81,11 +87,15 @@ export function mapSection(value: unknown): ApiSection {
     lectureNameTh: row.lectureNameTh,
     lectureNameEn: row.lectureNameEn,
     lectureNickname: row.lectureNickname == null ? undefined : String(row.lectureNickname),
-    room: row.room == null ? null : String(row.room),
-    schedule: row.schedule == null ? null : String(row.schedule),
     semesterId: String(row.semesterId),
     semesterNameTh: row.semesterNameTh,
     semesterNameEn: row.semesterNameEn,
+    scheduled: typeof row.scheduled === 'boolean' ? row.scheduled : undefined,
+    enrollmentDueDate: typeof row.enrollmentDueDate === 'string' ? row.enrollmentDueDate : undefined,
+    enrollmentOpen: typeof row.enrollmentOpen === 'boolean' ? row.enrollmentOpen : undefined,
+    academicTermId: row.academicTermId == null ? null : String(row.academicTermId),
+    academicYearCode: row.academicYearCode == null ? null : String(row.academicYearCode),
+    academicYearLabel: row.academicYearLabel == null ? null : String(row.academicYearLabel),
     status: row.status === 'ACTIVE' ? 'ACTIVE' : 'CLOSED',
   }
 }
@@ -106,6 +116,8 @@ export interface SectionListParams {
   semesterId?: number
   lectureId?: number
   status?: string
+  /** true = only sections with a published timetable meeting (backend spec 44). */
+  scheduled?: boolean
   sort?: string
 }
 
@@ -161,7 +173,7 @@ export async function createSection(value: Record<string, string>) {
 }
 export async function updateSection(id: string, value: Record<string, string>) {
   if (!value.capacity.trim()) throw new Error('Capacity is required.')
-  const { data } = await apiClient.put(sectionPath(id), { ...sectionPayload(value), room: value.room.trim() || null, schedule: value.schedule.trim() || null })
+  const { data } = await apiClient.put(sectionPath(id), sectionPayload(value))
   return mapSection(data)
 }
 export async function deleteSection(id: string) { await apiClient.delete(sectionPath(id)) }

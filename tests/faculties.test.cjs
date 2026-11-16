@@ -39,7 +39,9 @@ test('mapping preserves Thai, false, zero, null and exact request fields', () =>
 test('validation follows actual code/name constraints without duplicate-self checks', () => {
   const { load } = harness(), { validateFacultyForm: validate, facultyError } = load('src/utils/facultyApi.ts')
   assert.deepEqual(validate(input), {})
-  assert.ok(validate({ ...input, code: 'fac-eng' }).code)
+  assert.deepEqual(validate({ ...input, code: 'Engineering-Technology' }), {})
+  assert.deepEqual(validate({ ...input, code: 'Engineering -Technology' }), {})
+  assert.ok(validate({ ...input, code: 'FAC_ENG' }).code)
   assert.ok(validate({ ...input, code: 'X'.repeat(31) }).code)
   assert.ok(validate({ ...input, nameEn: ' ' }).nameEn)
   assert.ok(validate({ ...input, nameTh: 'ก'.repeat(256) }).nameTh)

@@ -17,12 +17,16 @@ export const navigation: NavigationItem[] = [
     { id: 'sections', label: 'Course Sections', to: '/admin/sections' },
     { id: 'enrollments', label: 'Enrollments', to: '/admin/enrollments' },
   ] },
-  { id: 'timetable', label: 'Timetable', icon: CalendarDays, to: '/admin/timetable' },
+  { id: 'timetable', label: 'Timetable', icon: CalendarDays, children: [
+    { id: 'class-timetable', label: 'Class Timetable', to: '/admin/timetable' },
+    { id: 'academic-terms', label: 'Academic Terms', to: '/admin/academic-terms' },
+  ] },
   { id: 'activities', label: 'Academic Activities', icon: Activity, children: [
     { id: 'assignments', label: 'Assignments', to: '/admin/assignments' },
     { id: 'exams', label: 'Exams', to: '/admin/exams' },
   ] },
   { id: 'campus', label: 'Campus Management', icon: Building2, children: [
+    { id: 'setup', label: 'Campus Setup', to: '/admin/campus-setup' },
     { id: 'map', label: 'Campus Map', to: '/admin/campus-map' },
     { id: 'buildings', label: 'Buildings', to: '/admin/buildings' },
     { id: 'rooms', label: 'Rooms', to: '/admin/rooms' },

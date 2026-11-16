@@ -85,6 +85,9 @@ export default function AddCourseContent() {
       else await createCourse(value)
       const operation = isEditing ? 'updated' : 'created'
       setMessage(`${value.code.trim()} was ${operation} successfully.${!filterCourses([{ id: 'x', code: value.code, name: value.name, credits: Number(value.credits), departmentId: value.departmentId, departmentName: '', facultyId: value.facultyId, facultyName: '', programIds: value.programId ? [value.programId] : [], curriculumYear: value.year ? Number(value.year) : null, semester: '', academicYear: '', sectionCount: 0, type: value.type as 'Required' | 'Elective', status: value.status as 'active' | 'inactive' }], filters).length ? ' Your current filters hide this course.' : ''} Refreshing server data.`)
+      // The catalog layout stays mounted between /admin/courses/new and /admin/courses,
+      // so its list only reloads when `attempt` changes. Bump it so the new or edited course appears.
+      retry()
       navigate('/admin/courses')
     } catch (error) {
       const err = courseError(error)

@@ -9,7 +9,7 @@ export type EnrollmentRow = {
 }
 export type EnrollmentDetail = EnrollmentRow & {
   universityEmail: string; lectureId: number; lectureNameEn: string; lectureNameTh: string
-  room: string | null; schedule: string | null; capacity: number; enrolledCount: number; isFull: boolean
+  capacity: number; enrolledCount: number; isFull: boolean
 }
 export type EnrollmentDraft = { studentId: string; courseSectionId: string; enrollmentDate: string; status: string }
 export const emptyEnrollmentQuery = { search: '', studentId: '', courseId: '', courseSectionId: '', semesterId: '', status: '', enrollmentDate: '' }
@@ -41,7 +41,7 @@ export function mapEnrollment(value: unknown): EnrollmentRow {
 }
 export function mapEnrollmentDetail(value: unknown): EnrollmentDetail {
   const row = value as EnrollmentDetail & { studentFirstName: string; studentLastName: string }
-  if (!row || typeof row.studentFirstName !== 'string' || typeof row.studentLastName !== 'string' || typeof row.universityEmail !== 'string' || !count(row.lectureId) || !row.lectureId || typeof row.lectureNameEn !== 'string' || typeof row.lectureNameTh !== 'string' || !count(row.capacity) || !row.capacity || !count(row.enrolledCount) || typeof row.isFull !== 'boolean' || (row.room !== null && typeof row.room !== 'string') || (row.schedule !== null && typeof row.schedule !== 'string')) throw new Error('Unexpected enrollment details.')
+  if (!row || typeof row.studentFirstName !== 'string' || typeof row.studentLastName !== 'string' || typeof row.universityEmail !== 'string' || !count(row.lectureId) || !row.lectureId || typeof row.lectureNameEn !== 'string' || typeof row.lectureNameTh !== 'string' || !count(row.capacity) || !row.capacity || !count(row.enrolledCount) || typeof row.isFull !== 'boolean') throw new Error('Unexpected enrollment details.')
   return { ...row, ...mapEnrollment({ ...row, studentName: `${row.studentFirstName} ${row.studentLastName}`.trim() }) }
 }
 export async function getEnrollments(query: EnrollmentQuery, page = 0, size = 10, signal?: AbortSignal): Promise<EnrollmentPage> {
@@ -110,6 +110,8 @@ export function enrollmentError(error: unknown) {
     ENROLLMENT_ALREADY_EXISTS: 'This student already has an enrollment for this section, including historical or deleted records.',
     STUDENT_ALREADY_ENROLLED_IN_COURSE: 'This student already holds a seat in this course for the selected semester.',
     COURSE_SECTION_FULL: 'This section is full. Pending and Active enrollments both reserve seats.',
+    COURSE_SECTION_NOT_IN_TIMETABLE: 'This section has no published timetable yet. Publish its class schedule in Timetable first.',
+    ENROLLMENT_DUE_DATE_PASSED: 'The enrollment due date of this section has passed.',
     COURSE_SECTION_NOT_AVAILABLE: 'The section is closed or unavailable.',
     ENROLLMENT_STUDENT_NOT_ELIGIBLE: 'Only active, non-deleted students can be enrolled.',
     INVALID_ENROLLMENT_STATUS_TRANSITION: 'That status transition is not allowed. Reload the enrollment.',

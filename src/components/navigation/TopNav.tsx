@@ -33,14 +33,16 @@ export default function TopNav({ onOpenNavigation, navigationOpen, navigationTri
   const isCommunication = isAnnouncements || isNotifications || isReminders
   const isAssignments = pathname.startsWith('/admin/assignments')
   const isExams = pathname.startsWith('/admin/exams')
+  const isCampusSetup = pathname.startsWith('/admin/campus-setup')
   const isCampusMap = pathname.startsWith('/admin/campus-map')
   const isBuildings = pathname.startsWith('/admin/buildings')
   const isRooms = pathname.startsWith('/admin/rooms')
   const isCampusPlaces = pathname.startsWith('/admin/campus-places')
   const isNavigationRoutes = pathname.startsWith('/admin/navigation-routes')
-  const isCampus = isCampusMap || isBuildings || isRooms || isCampusPlaces || isNavigationRoutes
+  const isCampus = isCampusSetup || isCampusMap || isBuildings || isRooms || isCampusPlaces || isNavigationRoutes
   const isStudents = pathname.startsWith('/admin/students')
-  const isTimetable = pathname.startsWith('/admin/timetable')
+  const isAcademicTerms = pathname.startsWith('/admin/academic-terms')
+  const isTimetable = pathname.startsWith('/admin/timetable') || isAcademicTerms
   const isDepartments = pathname.startsWith('/admin/departments')
   const isPrograms = pathname.startsWith('/admin/programs')
   const isCourses = pathname.startsWith('/admin/courses')
@@ -49,7 +51,7 @@ export default function TopNav({ onOpenNavigation, navigationOpen, navigationTri
   const isAcademic = pathname.startsWith('/admin/faculties') || isDepartments || isPrograms || isCourses || isSections || isEnrollments
   const PageIcon = isReports ? BarChart3 : isAi ? Bot : isSettings ? Settings : isCommunication ? Megaphone : isCampus ? Building2 : isAssignments || isExams ? Activity : isAcademic ? BookOpen : isTimetable ? CalendarDays : isStudents ? GraduationCap : isUserManagement ? Users : LayoutDashboard
   const pageLabel = isReports ? 'Reports & Analytics' : isAi ? 'AI Management' : isSettings ? 'Settings' : isCommunication ? 'Communication' : isCampus ? 'Campus Management' : isAssignments || isExams ? 'Academic Activities' : isAcademic ? 'Academic Management' : isTimetable ? 'Timetable' : isStudents ? 'Students' : isUserManagement ? 'User Management' : 'Dashboard'
-  const pagePath = isNavigationRoutes ? '/admin/navigation-routes' : isCampusPlaces ? '/admin/campus-places' : isRooms ? '/admin/rooms' : isBuildings ? '/admin/buildings' : isCampusMap ? '/admin/campus-map' : isExams ? '/admin/exams' : isAssignments ? '/admin/assignments' : isEnrollments ? '/admin/enrollments' : isSections ? '/admin/sections' : isCourses ? '/admin/courses' : isPrograms ? '/admin/programs' : isDepartments ? '/admin/departments' : isAcademic ? '/admin/faculties' : isTimetable ? '/admin/timetable' : isStudents ? '/admin/students' : isUserManagement ? '/admin/users' : '/admin/dashboard'
+  const pagePath = isNavigationRoutes ? '/admin/navigation-routes' : isCampusPlaces ? '/admin/campus-places' : isRooms ? '/admin/rooms' : isBuildings ? '/admin/buildings' : isCampusMap ? '/admin/campus-map' : isCampusSetup ? '/admin/campus-setup' : isExams ? '/admin/exams' : isAssignments ? '/admin/assignments' : isEnrollments ? '/admin/enrollments' : isSections ? '/admin/sections' : isCourses ? '/admin/courses' : isPrograms ? '/admin/programs' : isDepartments ? '/admin/departments' : isAcademic ? '/admin/faculties' : isAcademicTerms ? '/admin/academic-terms' : isTimetable ? '/admin/timetable' : isStudents ? '/admin/students' : isUserManagement ? '/admin/users' : '/admin/dashboard'
   const [open, setOpen] = useState<'search' | 'notifications' | 'account' | null>(null)
   const [query, setQuery] = useState('')
   const root = useRef<HTMLElement>(null)
