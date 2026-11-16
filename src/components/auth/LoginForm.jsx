@@ -3,7 +3,6 @@ import { Eye, EyeOff, LockKeyhole, LogIn, Mail } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
-import SecurityIndicators from './SecurityIndicators'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -193,16 +192,6 @@ export default function LoginForm({ onSuccess }) {
           )}
         </Button>
       </form>
-
-      <div className="my-6 flex items-center gap-3" aria-hidden="true">
-        <span className="h-px flex-1 bg-[#E5E8F0]" />
-        <span className="text-[10.5px] font-semibold tracking-[1.05px] text-[#D1D5DB]">
-          SECURE ACCESS
-        </span>
-        <span className="h-px flex-1 bg-[#E5E8F0]" />
-      </div>
-
-      <SecurityIndicators />
     </div>
   )
 }

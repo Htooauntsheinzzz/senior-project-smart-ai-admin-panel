@@ -4,6 +4,67 @@
 
 This document records implementation changes and technical decisions for the Smart AI Admin Web frontend.
 
+## 2026-11-13 - Login page: Sign up link and register page (design only)
+
+- Requested: Hsu asked for a sign up / register screen, design only, with no backend API.
+- Change: new public route `/register` (`RegisterPage.jsx` + `RegisterForm.jsx`) in the same style as the login page: Full Name, Email Address, Password, Confirm Password (show/hide), "I agree to the Terms of Use and Privacy Policy" checkbox and a Create Account button. The login page shows "Don't have an account? Sign up" under the card; the register page shows "Already have an account? Sign in".
+- The shared background, logo, heading and footer moved into `AuthLayout.jsx`; the switch link is `AuthSwitchLink.jsx`. The login page looks the same as before apart from the new link.
+- Behaviour: the form validates on the client (required fields, email format, password at least 8 characters, passwords match, terms accepted). A valid submit sends nothing and shows a green notice "Registration is not available yet. Please contact IT Support to get an account." Terms of Use and Privacy Policy are plain text, not links.
+- Social sign up (Hsu's follow-up, from a reference screenshot): under Create Account there is an "Or" divider and two buttons, "Sign up with Google" and "Sign up with Apple" (`SocialAuthButtons.jsx`, side by side on desktop, stacked on phones). Design only: no OAuth is configured, so a click shows "Sign up with Google/Apple is not available yet. Please contact IT Support to get an account." in the same green notice.
+- Decision: no request is sent because the backend has no self-registration endpoint (admin accounts are created by an admin on Admin Users). Wire `RegisterForm` to an API when one exists.
+- Checks: `tsc --noEmit`, `eslint .`, `node --test tests/*.test.cjs` (100), `vite build` in the cloud container with screenshots. Frontend only. Uncommitted.
+
+## 2026-11-13 - Login page: security indicators and staff-only notice removed
+
+- Requested: Hsu asked to remove the bottom of the login card shown in a screenshot: the "SECURE ACCESS" divider with the "256-bit SSL / Admin Only / Verified" dots, and the yellow "Staff only. Students, use the SMART AI mobile app." notice.
+- Change: `LoginForm.jsx` now ends after the Sign In button (the card keeps its own padding); `LoginPage.jsx` goes straight from the card to the footer (`mt-7`). `SecurityIndicators.jsx` and `StaffOnlyNotice.jsx` had no other users and were moved out of `src/` into `_to_delete/` (the sandbox cannot delete files). No tests referred to them. Spec `03-loginscreen.md` sections 27–29 marked as removed.
+- Frontend only. Uncommitted.
+
+## 2026-11-13 - Chat History: 3 conversations per page
+
+- Requested: the Chat History table should show 3 conversations per view, the rest through the Next button.
+- Change: `ChatHistoryContent.tsx` uses its own `PAGE_SIZE = 3` for the request (`size=3`), the `No.` numbers and the pager ("Showing 1–3 of 4 conversations"). The other tables keep 10 rows (`TABLE_PAGE_SIZE`); AI Feedback is unchanged. The export still contains every conversation that matches the filters.
+- Spec `43-api-implementation-chat-history.md` updated. Checks: `tsc --noEmit`, `eslint .`, `node --test tests/*.test.cjs` (100). Uncommitted.
+
+## 2026-11-13 - AI answers read like a normal chat reply (backend, admin and mobile)
+
+- Requested: in the first live test the answer was correct but showed Markdown and a reference ("According to **academic-calendar-2** (Academic year 2026-2027, Page 2) ... * **March 1 – 5, 2027**"). Hsu wants a normal reply like Claude, Gemini or ChatGPT give in a chat, without the reference in the text, for the admin panel and for the mobile chat.
+- Fix (backend only, decision D85): both assistants are told to start with the answer in natural sentences, to write plain text without Markdown and not to mention document names, pages or sections. A new cleaner (`AssistantAnswerText.plain`) removes any Markdown the model still writes before the answer is returned and stored.
+- Admin panel: no code change. AI Assistant and Test AI Knowledge already print the answer as plain text, and the sources stay where they were (chips under a chat answer, Supporting Sources in the test). Mobile app: no code change either, it prints the answer as plain text.
+- Trade-off: an answer no longer names its document. In the admin panel the sources are still visible next to it; the mobile app does not show sources yet.
+- Checks: new backend `AssistantAnswerTextTests` (3); full backend suite 1486 tests with only the two known unwritable-storage failures of the cloud container. No live Gemini run, so the wording of real answers has to be judged after a restart.
+- To use it: rebuild and restart the backend. Answers saved before the change keep their old text in Chat History.
+
+## 2026-11-13 - AI Management: AI Assistant, Test AI Knowledge, Chat History and AI Feedback connected (frontend + backend)
+
+- Requested: the four screens showed "API unavailable". Check whether the backend or the frontend is missing, implement what is missing, and write the specs first. The administrator must be able to test the AI assistant chat; the student side works and must not change.
+- Found: both sides were missing. The backend had only the student chat (`POST /api/v1/student/assistant/chat`), the student's own conversation endpoints and the admin semantic search (`POST /api/v1/admin/knowledge/search`). The four components were static placeholders.
+- Specs: backend `backend/seniorproject/spec-md/59-admin-ai-management-api.md`; frontend `41-api-implementation-ai-assistant.md`, `42-api-implementation-test-ai-knowledge.md`, `43-api-implementation-chat-history.md`, `44-api-implementation-ai-feedback.md`.
+- Backend (explicitly requested; decision D84 in the backend log), all under `/api/v1/admin/assistant` for `SUPER_ADMIN`, `ADMIN` and `ACADEMIC_ADMIN`:
+  - `POST /chat` and `POST /knowledge-test`: search the Ready knowledge documents, then one model request with the passages in the prompt. The model gets no tools, so an admin chat cannot read student records. Nothing is stored.
+  - `GET /conversations`, `/conversations/{id}`, `/conversations/export`: read-only view of the students' stored conversations (spec 58 tables) with search, date filter, paging and CSV.
+  - `GET /feedback`, `/feedback/statistics`, `/feedback/{id}`, `/feedback/export` and `PATCH /feedback/{id}/review`, on the new table `assistant_message_feedback` (Flyway V56).
+- Student side: the existing student APIs are unchanged. Two additions were needed for feedback to exist at all: a new endpoint `PUT /api/v1/student/assistant/conversations/{conversationId}/feedback` (a student rates one of their own answers) and, when a student deletes a conversation, its feedback rows are deleted first (the schema has no cascading foreign keys). The mobile app does not call the rating endpoint yet, so AI Feedback stays empty until it does (or until a rating is sent with Postman).
+- Decisions:
+  - The admin chat is a test chat, not a second student chat: it answers from documents only and keeps its conversation in the browser (the earlier turns are sent with each message, at most 20). It is not written to Chat History, so test questions never mix with student data.
+  - Test AI Knowledge does not call the model when no passage matches. It says so instead, because an answer from general knowledge would hide a gap in the knowledge base.
+  - Chat History is read-only for administrators. Reading a transcript is logged on the backend with the administrator's id and the conversation id, never with message text.
+  - Date filters are local days in the browser and instants on the server: From is sent as local midnight, To as the start of the next local day, so the To day is included.
+  - Model, student and document text is rendered as plain text. Backend error messages are mapped to fixed copy by code.
+- Frontend: `src/types/aiAssistant.ts`, `src/utils/aiAssistant.ts`, `src/services/aiAssistantService.ts`, `src/components/ai/AssistantUi.tsx` (shared pieces) and the four rewritten components. The layouts stay as they were; both tables got the `No.` column and 10 rows per page with `TablePagination`; export and review show the green toast. `/admin/chat-history?conversation=<id>` opens one transcript (used by the link in the feedback review modal).
+- Checks: `tsc --noEmit`, `eslint .`, `node --test tests/*.test.cjs` (100, new `tests/ai-management.test.cjs` with 9), `vite build`, and a Playwright run of all four screens with mocked responses (chat with sources, test with passages, history with transcript, feedback with review and toast, no console errors). Backend: the two new test classes pass (9 tests) and the full suite ran 1483 tests with 2 failures, both the known unwritable-storage tests that fail only in the cloud container (it runs as root). No live Gemini run was made for the new endpoints.
+- To use it: restart the backend so Flyway applies V56. Changes are uncommitted.
+
+## 2026-11-13 - Knowledge Base: Gemini embedding size matches the 768-dimension vector column (backend)
+
+- Problem: `gemini-embedding-001` returns 3072 numbers per vector by default, but `academic_document_chunks.embedding` is `vector(768)` (V51) with an HNSW cosine index. If the size differs, the EMBED stage fails with `EMBEDDING_DIMENSION_MISMATCH` and the document ends as Failed instead of Ready.
+- Checked: the backend already asks the provider for 768 numbers (`dimensions: 768` in the OpenAI-compatible `POST {base-url}/embeddings` body, `AI_EMBEDDING_SEND_DIMENSIONS=true` by default) and L2-normalizes every vector itself, which Google requires for `gemini-embedding-001` below 3072. Google's OpenAI-compatibility page does not document the `dimensions` field for embeddings, so it could be ignored.
+- Decision: keep the column at 768 (one of Google's recommended sizes; pgvector HNSW/IVFFlat indexes allow at most 2000 dimensions, so 3072 cannot be indexed) and make the client tolerant instead of adding a migration. No re-embedding or schema change is needed.
+- Backend (explicitly requested): new setting `app.knowledge.embedding.truncate-longer-vectors` (`AI_EMBEDDING_TRUNCATE_LONGER_VECTORS`, default `true`, added to `application.properties`, `compose.yaml` and `.env.example`). When the provider returns more numbers than `AI_EMBEDDING_DIMENSIONS`, `OpenAiCompatibleEmbeddingClient` keeps the first 768 and re-normalizes (the Matryoshka reduction Gemini itself applies for `output_dimensionality`). A shorter vector still fails with `EMBEDDING_DIMENSION_MISMATCH`. Set the flag to `false` for a model that is not Matryoshka-trained.
+- `AI_EMBEDDING_DIMENSIONS` stays validated to 768 because it must equal the column; a different size needs a new migration plus a full re-embedding.
+- Live test (same day, with Hsu's key): Gemini does honour `dimensions: 768` (and returns 3072 without it), but it leaves `"index"` out of the first entry of `data` (0 is omitted). The parser required an index on every entry, so every Gemini reply failed with `EMBEDDING_INVALID_RESPONSE`; this was the real blocker. Fix: a missing index now means the entry's position in the array; a present index must still be a valid, unused integer, so duplicates and gaps are still rejected.
+- Tests: `OpenAiCompatibleEmbeddingClientTests` (9) adds the missing-index reply shape, a 3072 → 768 truncation case and a strict-mode mismatch case. `LiveEmbeddingCheck` passes against the real Gemini endpoint through the backend client (3 texts in one request, 768 numbers each, normalized). The wider knowledge test run passed 169 of 171 before the index fix; the two failures are unwritable-storage tests, most likely because the test container runs as root. No `.env` change is needed. Restart the backend and reprocess Failed documents. Changes are uncommitted.
+
 ## 2026-11-12 - Tables: 10 rows per page everywhere
 
 - Requested: every table list should show only 10 rows per view, with Next/Previous for the rest. Before, Courses, Faculties, Departments, Programs, Lecturers, Course Sections, Campus Places, Campus Setup, Navigation routes and destinations, and Schedule Conflicts showed every row on one page; Admin Users and Buildings paged by 8 and the Timetable list by 20.

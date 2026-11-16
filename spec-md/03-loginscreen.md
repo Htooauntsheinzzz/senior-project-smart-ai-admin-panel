@@ -1079,6 +1079,8 @@ Do not change layout size when entering loading state.
 
 # 27. Secure Access Divider
 
+> **Removed 2026-11-13** at Hsu's request: this element is no longer shown on the login page. See `00-changes-and-decisions.md`.
+
 Below the form is:
 
 ```text
@@ -1124,6 +1126,8 @@ line
 ---
 
 # 28. Security Indicators
+
+> **Removed 2026-11-13** at Hsu's request: this element is no longer shown on the login page. See `00-changes-and-decisions.md`.
 
 Three small status items appear below the divider.
 
@@ -1190,6 +1194,8 @@ These elements are informational and not clickable.
 ---
 
 # 29. Staff Only Notice
+
+> **Removed 2026-11-13** at Hsu's request: this element is no longer shown on the login page. See `00-changes-and-decisions.md`.
 
 Below the Login Card is a warning/information banner.
 
@@ -1382,9 +1388,7 @@ src/
 ├── components/
 │   ├── auth/
 │   │   ├── LoginForm.jsx
-│   │   ├── LoginBranding.jsx
-│   │   ├── SecurityIndicators.jsx
-│   │   └── StaffOnlyNotice.jsx
+│   │   └── LoginBranding.jsx
 │   │
 │   └── ui/
 │       ├── Input.jsx
@@ -1893,7 +1897,6 @@ LoginPage
         ├── Heading
         ├── Description
         ├── LoginForm
-        ├── StaffOnlyNotice
         └── Footer
 ```
 
