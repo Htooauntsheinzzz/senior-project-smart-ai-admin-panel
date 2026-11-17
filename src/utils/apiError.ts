@@ -20,6 +20,9 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
     PASSWORD_POLICY_VIOLATION: 'Use at least 15 Unicode characters and at most 72 UTF-8 bytes, without NUL.',
     SELF_ACCOUNT_CHANGE_NOT_ALLOWED: 'Changing your own status, role, or deleting your own account is not allowed.',
     CONCURRENT_MODIFICATION: 'The record was modified concurrently. Reload and try again.',
+    // Spec 46: the approval of a self-registration.
+    REGISTRATION_NOT_PENDING: 'This registration was already approved or rejected.',
+    REGISTRATION_DECISION_REQUIRED: 'Approve or reject this registration first.',
   }
   if ((status === 400 || status === 404 || status === 409) && data?.code && messages[data.code]) return messages[data.code]
   if (status === 404) return 'User not found.'

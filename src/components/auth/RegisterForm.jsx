@@ -1,66 +1,37 @@
 import { useState } from 'react'
 import {
-  CheckCircle2,
   Eye,
   EyeOff,
+  Info,
   LockKeyhole,
   Mail,
+  Phone,
   UserPlus,
   UserRound,
 } from 'lucide-react'
+import { useAuth } from '../../hooks/useAuth'
+import * as authService from '../../services/authService'
+import {
+  EMPTY_REGISTRATION_FORM,
+  MIN_PASSWORD_CHARACTERS,
+  REGISTRATION_FIELDS,
+  buildRegisterPayload,
+  googleSignInFailure,
+  isPendingApproval,
+  registrationFailure,
+  validateRegistration,
+} from '../../utils/adminRegistration'
+import { ADMIN_EMAIL_DOMAIN } from '../../utils/authConfig'
 import Button from '../ui/Button'
-import SocialAuthButtons from './SocialAuthButtons'
 import Input from '../ui/Input'
+import RegistrationSent from './RegistrationSent'
+import RegistrationWaiting from './RegistrationWaiting'
+import SocialAuthButtons from './SocialAuthButtons'
 
-// Design only: the backend has no registration API yet, so submitting
-// validates the form and shows a notice instead of sending a request.
-// The Google and Apple buttons are design only as well.
-
-const NOT_AVAILABLE_NOTICE =
-  'Registration is not available yet. Please contact IT Support to get an account.'
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const MIN_PASSWORD_LENGTH = 8
-
-const EMPTY_FORM = {
-  fullName: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-}
-
-function validate(form, acceptedTerms) {
-  const errors = {}
-  const email = form.email.trim()
-
-  if (!form.fullName.trim()) {
-    errors.fullName = 'Full name is required.'
-  }
-
-  if (!email) {
-    errors.email = 'Email is required.'
-  } else if (!EMAIL_PATTERN.test(email)) {
-    errors.email = 'Please enter a valid email address.'
-  }
-
-  if (!form.password) {
-    errors.password = 'Password is required.'
-  } else if (form.password.length < MIN_PASSWORD_LENGTH) {
-    errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`
-  }
-
-  if (!form.confirmPassword) {
-    errors.confirmPassword = 'Please confirm your password.'
-  } else if (form.confirmPassword !== form.password) {
-    errors.confirmPassword = 'Passwords do not match.'
-  }
-
-  if (!acceptedTerms) {
-    errors.terms = 'Please accept the terms to continue.'
-  }
-
-  return errors
-}
+// Admin self-registration (spec 45, section 5). The form posts to
+// POST /auth/register and then shows "Check your email". The Google button
+// creates the account at once (section 7). Since spec 46 every new account
+// waits for a Super Admin's approval before it can sign in.
 
 function PasswordToggle({ isVisible, onToggle }) {
   return (
@@ -79,13 +50,27 @@ function PasswordToggle({ isVisible, onToggle }) {
   )
 }
 
-export default function RegisterForm() {
-  const [form, setForm] = useState(EMPTY_FORM)
+function focusFirstError(formElement, fieldErrors) {
+  const field = REGISTRATION_FIELDS.find((name) => fieldErrors[name])
+
+  if (field) {
+    formElement.elements.namedItem(field)?.focus()
+  }
+}
+
+export default function RegisterForm({ onGoogleSuccess }) {
+  const { loginWithGoogle } = useAuth()
+  const [form, setForm] = useState(EMPTY_REGISTRATION_FORM)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [errors, setErrors] = useState({})
+  const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGoogleBusy, setIsGoogleBusy] = useState(false)
+  const [sentTo, setSentTo] = useState('')
+  const [isWaiting, setIsWaiting] = useState(false)
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -95,49 +80,148 @@ export default function RegisterForm() {
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
-    const validationErrors = validate(form, acceptedTerms)
+    if (isSubmitting || isGoogleBusy) {
+      return
+    }
+
+    const formElement = event.currentTarget
+    const validationErrors = validateRegistration(form, acceptedTerms)
+
+    setFormError('')
+    setNotice('')
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
-      setNotice('')
+      focusFirstError(formElement, validationErrors)
       return
     }
 
     setErrors({})
-    setNotice(NOT_AVAILABLE_NOTICE)
+    setIsSubmitting(true)
+
+    try {
+      const payload = buildRegisterPayload(form)
+
+      await authService.register(payload)
+      // The passwords are not needed any more; do not keep them in memory.
+      setForm((current) => ({ ...current, password: '', confirmPassword: '' }))
+      setShowPassword(false)
+      setShowConfirmPassword(false)
+      setSentTo(payload.email)
+    } catch (error) {
+      const failure = registrationFailure(error)
+
+      setErrors(failure.fieldErrors)
+      setFormError(failure.message)
+      focusFirstError(formElement, failure.fieldErrors)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function showAtTop(setMessage, message) {
+    setErrors({})
+    setFormError('')
+    setNotice('')
+    setMessage(message)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function handleGoogleCredential(idToken) {
+    if (isSubmitting || isGoogleBusy) {
+      return
+    }
+
+    setErrors({})
+    setFormError('')
+    setNotice('')
+    setIsGoogleBusy(true)
+
+    try {
+      const session = await loginWithGoogle({ idToken })
+
+      onGoogleSuccess?.(session)
+    } catch (error) {
+      if (isPendingApproval(error)) {
+        setIsWaiting(true)
+      } else {
+        showAtTop(setFormError, googleSignInFailure(error))
+      }
+    } finally {
+      setIsGoogleBusy(false)
+    }
+  }
+
+  if (isWaiting) {
+    return (
+      <div className="w-full rounded-[24px] bg-white p-6 shadow-[0_4px_12px_rgba(15,39,76,0.08)] sm:p-8">
+        <RegistrationWaiting />
+      </div>
+    )
+  }
+
+  if (sentTo) {
+    return (
+      <div className="w-full rounded-[24px] bg-white p-6 shadow-[0_4px_12px_rgba(15,39,76,0.08)] sm:p-8">
+        <RegistrationSent email={sentTo} onUseDifferentEmail={() => setSentTo('')} />
+      </div>
+    )
   }
 
   return (
     <div className="w-full rounded-[24px] bg-white p-6 shadow-[0_4px_12px_rgba(15,39,76,0.08)] sm:p-8">
       <form noValidate onSubmit={handleSubmit}>
+        {formError && (
+          <div
+            className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
+            role="alert"
+          >
+            {formError}
+          </div>
+        )}
+
         {notice && (
           <div
-            className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-3 text-sm leading-5 text-[#166534]"
+            className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#E5E8F0] bg-[#F7F8FC] px-4 py-3 text-sm leading-5 text-[#273238]"
             role="status"
           >
-            <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[#68728A]" />
             <p>{notice}</p>
           </div>
         )}
 
         <div className="space-y-4">
-          <Input
-            autoComplete="name"
-            error={errors.fullName}
-            icon={<UserRound className="h-[18px] w-[18px]" />}
-            label="Full name"
-            name="fullName"
-            onChange={(event) => updateField('fullName', event.target.value)}
-            placeholder="Full Name"
-            type="text"
-            value={form.fullName}
-          />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              autoComplete="given-name"
+              error={errors.firstName}
+              icon={<UserRound className="h-[18px] w-[18px]" />}
+              label="First name"
+              name="firstName"
+              onChange={(event) => updateField('firstName', event.target.value)}
+              placeholder="First Name"
+              type="text"
+              value={form.firstName}
+            />
+            <Input
+              autoComplete="family-name"
+              error={errors.lastName}
+              icon={<UserRound className="h-[18px] w-[18px]" />}
+              label="Last name"
+              name="lastName"
+              onChange={(event) => updateField('lastName', event.target.value)}
+              placeholder="Last Name"
+              type="text"
+              value={form.lastName}
+            />
+          </div>
           <Input
             autoComplete="email"
             error={errors.email}
+            hint={`Only @${ADMIN_EMAIL_DOMAIN} addresses can register.`}
             icon={<Mail className="h-[18px] w-[18px]" />}
             label="Email address"
             name="email"
@@ -147,8 +231,20 @@ export default function RegisterForm() {
             value={form.email}
           />
           <Input
+            autoComplete="tel"
+            error={errors.phoneNumber}
+            icon={<Phone className="h-[18px] w-[18px]" />}
+            label="Phone number (optional)"
+            name="phoneNumber"
+            onChange={(event) => updateField('phoneNumber', event.target.value)}
+            placeholder="Phone Number (optional)"
+            type="tel"
+            value={form.phoneNumber}
+          />
+          <Input
             autoComplete="new-password"
             error={errors.password}
+            hint={`At least ${MIN_PASSWORD_CHARACTERS} characters.`}
             icon={<LockKeyhole className="h-[18px] w-[18px]" />}
             label="Password"
             name="password"
@@ -191,6 +287,7 @@ export default function RegisterForm() {
               aria-invalid={Boolean(errors.terms)}
               checked={acceptedTerms}
               className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-[5px] border-2 border-[#E5E8F0] accent-[#273238] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#273238]/20"
+              name="terms"
               onChange={(event) => {
                 setAcceptedTerms(event.target.checked)
                 setNotice('')
@@ -214,20 +311,33 @@ export default function RegisterForm() {
           )}
         </div>
 
-        <Button type="submit">
-          Create Account
-          <UserPlus aria-hidden="true" className="h-4 w-4" />
+        <Button disabled={isGoogleBusy} isLoading={isSubmitting} type="submit">
+          {isSubmitting ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+              Creating account...
+            </>
+          ) : (
+            <>
+              Create Account
+              <UserPlus aria-hidden="true" className="h-4 w-4" />
+            </>
+          )}
         </Button>
       </form>
 
       <SocialAuthButtons
-        onSelect={(_provider, name) => {
-          setErrors({})
-          setNotice(
-            `Sign up with ${name} is not available yet. Please contact IT Support to get an account.`,
+        isBusy={isGoogleBusy}
+        onGoogleCredential={handleGoogleCredential}
+        onGoogleError={() => showAtTop(setFormError, googleSignInFailure(null))}
+        onSelect={(provider) =>
+          showAtTop(
+            setNotice,
+            provider === 'google'
+              ? 'Sign up with Google is not set up on this site yet. Please use the form.'
+              : 'Sign up with Apple is not available. Use the form or your university Google account.',
           )
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-        }}
+        }
       />
     </div>
   )

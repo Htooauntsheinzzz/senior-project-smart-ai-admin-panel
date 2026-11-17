@@ -1,5 +1,10 @@
-// Design only: no OAuth provider is configured, so the parent decides what a
-// click does (the register page shows a "not available yet" notice).
+import { GOOGLE_CLIENT_ID } from '../../utils/authConfig'
+import GoogleSignInButton from './GoogleSignInButton'
+
+// Spec 45, section 7. Google: the real button of Google Identity Services when
+// a client ID is set for this build, otherwise the design-only button. Apple:
+// design only (the backend has no Apple sign-in). For a design-only button the
+// parent decides what a click does (`onSelect`).
 
 function GoogleIcon() {
   return (
@@ -37,12 +42,28 @@ function AppleIcon() {
   )
 }
 
-const providers = [
-  { id: 'google', name: 'Google', Icon: GoogleIcon },
-  { id: 'apple', name: 'Apple', Icon: AppleIcon },
-]
+// Same height and shape as Google's button, so the two look like one set.
+function DesignOnlyButton({ children, disabled, onClick }) {
+  return (
+    <button
+      className="flex h-10 w-full max-w-[400px] items-center justify-center gap-2.5 rounded-full border border-[#DADCE0] bg-white px-3 text-[14px] font-medium whitespace-nowrap text-[#3C4043] transition hover:border-[#D2E3FC] hover:bg-[#F8FAFF] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#273238]/10 disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  )
+}
 
-export default function SocialAuthButtons({ actionLabel = 'Sign up', onSelect }) {
+export default function SocialAuthButtons({
+  actionLabel = 'Sign up',
+  isBusy = false,
+  onGoogleCredential,
+  onGoogleError,
+  onSelect,
+  showApple = true,
+}) {
   return (
     <div>
       <div className="my-6 flex items-center gap-3">
@@ -51,18 +72,27 @@ export default function SocialAuthButtons({ actionLabel = 'Sign up', onSelect })
         <span aria-hidden="true" className="h-px flex-1 bg-[#E5E8F0]" />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {providers.map(({ id, name, Icon }) => (
-          <button
-            className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border border-[#E5E8F0] bg-white px-3 text-[13.5px] font-semibold whitespace-nowrap text-[#273238] transition hover:border-[#D1D5DB] hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#273238]/10"
-            key={id}
-            onClick={() => onSelect(id, name)}
-            type="button"
-          >
-            <Icon />
-            {actionLabel} with {name}
-          </button>
-        ))}
+      <div className="flex flex-col items-center gap-3">
+        {GOOGLE_CLIENT_ID ? (
+          <GoogleSignInButton
+            isBusy={isBusy}
+            onCredential={onGoogleCredential}
+            onError={onGoogleError}
+            text={actionLabel === 'Sign in' ? 'signin_with' : 'signup_with'}
+          />
+        ) : (
+          <DesignOnlyButton disabled={isBusy} onClick={() => onSelect('google', 'Google')}>
+            <GoogleIcon />
+            {actionLabel} with Google
+          </DesignOnlyButton>
+        )}
+
+        {showApple && (
+          <DesignOnlyButton disabled={isBusy} onClick={() => onSelect('apple', 'Apple')}>
+            <AppleIcon />
+            {actionLabel} with Apple
+          </DesignOnlyButton>
+        )}
       </div>
     </div>
   )

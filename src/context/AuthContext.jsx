@@ -18,6 +18,18 @@ function normalizeSession(tokenResponse, remember) {
   }
 }
 
+// Keeps the tokens of a password login or a Google sign-in (same answer body).
+function storeSession(tokenResponse, rememberMe) {
+  const nextSession = normalizeSession(tokenResponse, rememberMe)
+
+  if (!nextSession.accessToken || !nextSession.refreshToken) {
+    throw new Error('Invalid authentication response.')
+  }
+
+  setTokenSession(nextSession, rememberMe)
+  return nextSession
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
@@ -80,13 +92,18 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async ({ email, password, rememberMe = false }) => {
     const tokenResponse = await authService.login({ email, password })
-    const nextSession = normalizeSession(tokenResponse, rememberMe)
+    const nextSession = storeSession(tokenResponse, rememberMe)
 
-    if (!nextSession.accessToken || !nextSession.refreshToken) {
-      throw new Error('Invalid authentication response.')
-    }
+    setSession(nextSession)
+    return nextSession
+  }, [])
 
-    setTokenSession(nextSession, rememberMe)
+  // The ID token of the Google button (spec 45). The first sign-in of a
+  // university account creates the admin account.
+  const loginWithGoogle = useCallback(async ({ idToken, rememberMe = false }) => {
+    const tokenResponse = await authService.googleSignIn(idToken)
+    const nextSession = storeSession(tokenResponse, rememberMe)
+
     setSession(nextSession)
     return nextSession
   }, [])
@@ -106,6 +123,7 @@ export function AuthProvider({ children }) {
     isAuthLoading,
     forcePasswordChange: Boolean(session?.forcePasswordChange),
     login,
+    loginWithGoogle,
     logout,
     clearAuthentication,
   }

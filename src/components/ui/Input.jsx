@@ -1,5 +1,6 @@
 export default function Input({
   error,
+  hint,
   icon,
   label,
   trailingAction,
@@ -7,6 +8,8 @@ export default function Input({
 }) {
   const inputId = inputProps.id || inputProps.name
   const errorId = error ? `${inputId}-error` : undefined
+  // An optional line under the field. An error takes its place.
+  const hintId = hint && !error ? `${inputId}-hint` : undefined
 
   return (
     <div>
@@ -23,7 +26,7 @@ export default function Input({
         <input
           {...inputProps}
           id={inputId}
-          aria-describedby={errorId}
+          aria-describedby={errorId || hintId}
           aria-invalid={Boolean(error)}
           className={`h-14 w-full rounded-2xl border bg-white pl-12 text-sm font-medium text-[#273238] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#273238] focus:ring-4 focus:ring-[#273238]/8 ${
             trailingAction ? 'pr-12' : 'pr-4'
@@ -34,6 +37,11 @@ export default function Input({
       {error && (
         <p className="mt-1.5 px-1 text-xs text-[#B42318]" id={errorId}>
           {error}
+        </p>
+      )}
+      {hintId && (
+        <p className="mt-1.5 px-1 text-xs text-[#68728A]" id={hintId}>
+          {hint}
         </p>
       )}
     </div>

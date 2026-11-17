@@ -32,3 +32,14 @@ export async function updateUser(id, payload) {
 export async function deleteUser(id) {
   await apiClient.delete(userPath(id))
 }
+
+// Spec 46: the Super Admin's decision about a self-registration. The backend
+// sends the email to the person.
+export async function approveUser(id) {
+  const response = await apiClient.post(`${userPath(id)}/approve`)
+  return response.data
+}
+
+export async function rejectUser(id) {
+  await apiClient.post(`${userPath(id)}/reject`)
+}

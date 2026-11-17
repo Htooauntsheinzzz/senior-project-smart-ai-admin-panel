@@ -12,6 +12,12 @@ const roleColors: Record<string, string> = {
   'Admin': 'bg-[#f2f4f8] text-[#68728a]',
 }
 const roleColorDefault = 'bg-[#f2f4f8] text-[#68728a]'
+// Spec 46 section 4.1: a registration that waits for approval stands out in amber.
+function statusTone(accountStatus: string) {
+  if (accountStatus === 'ACTIVE') return { badge: 'bg-[#dcfce7] text-[#008a34]', dot: 'bg-[#22c55e]' }
+  if (accountStatus === 'PENDING_APPROVAL') return { badge: 'bg-[#fef3c7] text-[#92400e]', dot: 'bg-[#f59e0b]' }
+  return { badge: 'bg-[#f3f4f6] text-[#6b7280]', dot: 'bg-[#9ca3af]' }
+}
 const avatars = ['from-[#e48100] to-[#7567f5]', 'from-[#00b4e5] to-[#2860fa]', 'from-[#6865f5] to-[#d70065]', 'from-[#e40055] to-[#7066f7]', 'from-[#8633f2] to-[#d67b00]', 'from-[#df7900] to-[#9033e2]', 'from-[#df8300] to-[#00996b]', 'from-[#7265f5] to-[#d98200]']
 
 export default function AdminUsersTable({ users, total, activeCount, inactiveCount, loading, error, onRetry, page, pageCount, onPage, onDetails }: {
@@ -35,7 +41,7 @@ export default function AdminUsersTable({ users, total, activeCount, inactiveCou
           <td className="px-5 py-3.5 leading-5 whitespace-nowrap text-[#68728a]">{user.email}</td>
           <td className="px-5 py-3.5 leading-5">{user.department}</td>
           <td className="px-5 py-3.5"><Badge className={`rounded-full! text-[11px]! font-medium! ${roleColors[user.role] ?? roleColorDefault}`}>{user.role === 'AI Content Admin' ? <span>AI Content<br />Admin</span> : user.role}</Badge></td>
-          <td className="px-5 py-3.5"><Badge className={`gap-1.5 rounded-full! text-[11px]! font-medium! ${user.status === 'Active' ? 'bg-[#dcfce7] text-[#008a34]' : 'bg-[#f3f4f6] text-[#6b7280]'}`}><span aria-hidden="true" className={`size-1.5 rounded-full ${user.status === 'Active' ? 'bg-[#22c55e]' : 'bg-[#9ca3af]'}`} />{user.status}</Badge></td>
+          <td className="px-5 py-3.5"><Badge className={`gap-1.5 rounded-full! text-[11px]! font-medium! ${statusTone(user.accountStatus).badge}`}><span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${statusTone(user.accountStatus).dot}`} />{user.accountStatus === 'PENDING_APPROVAL' ? <span title={user.status} className="whitespace-nowrap">Waiting<span className="sr-only"> for approval</span></span> : user.status}</Badge></td>
           <td className="px-5 py-3.5 leading-5 text-[#68728a]">{user.lastLogin}</td>
           <td className="px-5 py-3.5"><button type="button" title="View admin details" aria-label={`View details for ${user.name}`} onClick={() => onDetails(user)} className="rounded-lg p-1.5 text-[#68728a] hover:bg-[#f7f8fc] focus-visible:outline-2"><MoreVertical size={16} /></button></td>
         </tr>)}</tbody>

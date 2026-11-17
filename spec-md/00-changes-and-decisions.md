@@ -4,6 +4,58 @@
 
 This document records implementation changes and technical decisions for the Smart AI Admin Web frontend.
 
+## 2026-11-17 - Admin self-registration waits for a Super Admin's approval (spec 46)
+
+- Requested: Hsu: staff and students share the `@rsu.ac.th` domain; Hsu chose the approval step and a mail to the person when the admin team approves the account. Backend: spec file 62, decision D87 (backend folder).
+- Spec, written first: `46-api-implementation-admin-registration-approval.md`.
+- Change:
+  - `/register` (form): "Check your email" says that the admin team checks the registration after the address is confirmed.
+  - `/verify-email`: "Your email is confirmed" now says that the registration waits for approval and that an email follows.
+  - `/register` (Google): the answer `403 ACCOUNT_PENDING_APPROVAL` shows a **Registration received** card (new `RegistrationWaiting.jsx`) instead of an error.
+  - `/login` (password and Google): `403 ACCOUNT_PENDING_APPROVAL` shows an amber notice "Your registration is waiting for approval by the admin team. We will email you when it is approved." A wrong password still shows "Invalid email or password."
+  - Admin Users: status "Waiting for approval" (amber badge "Waiting"), the status filter offers it and "Unverified", a line "n registrations waiting for approval" with **Show**, and in the details window **Approve** (waiting accounts) and **Reject** (waiting and unverified accounts), each with a confirm window. The backend sends the mails.
+  - Edit form: for a waiting or unverified account the status select is locked to its own status; the update keeps it, so the employee ID and the role can be entered before approving.
+- Choices the request did not give: Approve and Reject are in the details window (the table keeps its design); approving asks first and names the role the person gets; the waiting count is shown on Admin Users only (no menu badge; the backend has no count endpoint, the list call with `size=1` gives it).
+- Existing code touched: `userService.js` and `.d.ts` (`approveUser`, `rejectUser`), `types/adminUser.ts`, `utils/addAdminUser.ts` (`validateAdminForm` takes `currentStatus`), `utils/apiError.ts` (two codes), `utils/adminRegistration.js`, `AdminUsersContent.tsx`, `AdminUsersTable.tsx`, `AddAdminUserContent.tsx` (a field can be disabled and have a hint), `LoginForm.jsx`, `RegisterForm.jsx`, `RegistrationSent.jsx`, `EmailVerification.jsx`. No package was added.
+- Tests: new `tests/admin-registration-approval.test.cjs` (4); `tests/admin-registration.test.cjs` changed for the locked status (116 tests in all). A browser run against the backend in the cloud container passed: form registration → waiting mail → waiting notice at login → Super Admin enters the employee ID → approves → approved mail → sign-in; Google sign-up → "Registration received" → reject → not-approved mail → Google sign-in refused.
+
+## 2026-11-17 - Admin self-registration: register form, email confirmation page and Google sign-in connected (spec 45)
+
+- Requested: Hsu: "build for the frontend also for registration both form and google Oauth", after the backend part was done (backend spec files 60 and 61, backend decision D86). Before this, `/register` was design only (entry of 2026-11-13 below).
+- Spec, written first: `45-api-implementation-admin-self-registration.md`.
+- Change:
+  - `/register`: the form posts to `POST /auth/register` and then shows **Check your email** with **Send the email again** and **Use a different email**. The texts are the same whether or not the address already has an account, as the backend answers.
+  - `/verify-email?token=...` (new, public): the page of the link in the registration mail. It shows "Your email is confirmed" with **Go to sign in**, or "This link does not work" with a **Send a new link** form, or "We could not confirm your email" with **Try again**. The token is sent once per page load, also in React StrictMode.
+  - Google: Google's own button (Google Identity Services) on `/login` ("Sign in with Google") and on `/register` ("Sign up with Google"). Its ID token is posted to `POST /auth/google`; the answer is stored exactly like a password login (`AuthContext.loginWithGoogle`). "Remember me" of the login page applies to it.
+  - Settings read at build time: `VITE_GOOGLE_CLIENT_ID`, `VITE_ADMIN_EMAIL_DOMAIN`, `VITE_GOOGLE_HOSTED_DOMAIN` (`src/utils/authConfig.js`, `Dockerfile`, `.env.example`, `README.md`). Without a client ID the Google button is the design-only button and a click says that Google sign-in is not set up.
+  - Admin Users: a self-registered account has no employee ID and a form registration waits as `PENDING_VERIFICATION`. The list, the details and the CSV export show "—" and "Unverified" (before, the export stopped with an error on such a row). The edit form shows "Unverified" as the status of such an account (before, it showed "Active" and then refused to save with no way to choose "Active").
+- Deviations from the design of 2026-11-13 and choices the request did not give:
+  1. **First name and Last name** instead of one Full name. The backend stores and asks for both; splitting one field by a space would guess wrong for many names.
+  2. **Phone number (optional)** was added. The backend accepts it and Admin Users shows it.
+  3. **Password: at least 15 characters** (the design said 8). It is the password rule of the backend, also at most 72 bytes.
+  4. **Google's own button, and the buttons under each other** instead of the custom button side by side with Apple. Google's window that returns an ID token opens only from the button that Google draws, and that button has a fixed width in pixels (at most 400).
+  5. **The Google button is on the login page too.** An account made with Google has no password, so without it that person could not sign in a second time.
+  6. **Apple stays design only**, on the register page only. It was not asked for and the backend has no Apple sign-in. A click says so.
+  7. **Fixed texts by error code.** Backend spec 61 section 15 said to show the server `message` of two Google refusals; the project rule (specs 41 to 44) is not to show server strings, so the admin web shows its own text with the same meaning.
+  8. **Hint lines** under Email ("Only @rsu.ac.th addresses can register.") and Password ("At least 15 characters."); `Input.jsx` got an optional `hint`.
+  9. A signed-in admin who opens `/register` is sent to the dashboard, as on `/login`.
+  10. The token stays in the address bar of `/verify-email`.
+- Outside this folder: the backend `compose.yaml` passes three build arguments to the `admin-web` image (`VITE_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}`, `VITE_GOOGLE_HOSTED_DOMAIN`, `VITE_ADMIN_EMAIL_DOMAIN`). `Agent.md` says not to change backend code; no Java code changed. This Compose file builds the image of this frontend, and `.dockerignore` keeps `.env` out of the image, so a build argument is the only way the client ID reaches a Docker build. One client ID in the backend `.env` serves both sides.
+- Existing code touched: `AuthContext.jsx` (`login` and `loginWithGoogle` share `storeSession`), `LoginForm.jsx`, `RegisterForm.jsx` and `SocialAuthButtons.jsx` (rewritten), `RegisterPage.jsx`, `Input.jsx`, `AppRoutes.jsx`, `authService.js`, and for Admin Users `types/adminUser.ts`, `services/userService.d.ts`, `AdminUsersContent.tsx`, `AddAdminUserContent.tsx`, `utils/addAdminUser.ts`. No package was added.
+- Seen, not changed:
+  - In `npm run dev` a page reload signs the admin out. React StrictMode runs the start-up effect of `AuthContext` twice, so the refresh token is sent twice and the second answer is `401`. It was like this before this work and the built app (Docker) is not affected: there one reload sends one refresh request and keeps the session.
+  - The status filter of Admin Users does not offer "Unverified" (the API can filter by `accountStatus=PENDING_VERIFICATION`).
+- Checks:
+  - `npx tsc --noEmit`, `npx eslint .`, `node --test tests/*.test.cjs` (112; new `tests/admin-registration.test.cjs` with 12), `vite build`.
+  - Browser run (Playwright) in the cloud container against the started backend with PostgreSQL, Redis and a mail catcher, on the dev server (StrictMode) and on the built app: the form flow (17 checks: messages of the form, one request with exactly the backend fields, the mail and its link, sign-in refused before the link, send again, replaced link, confirmed, used link, no answer from the server, too many mails, "You already have an account" mail) and the Google flow (12 checks: one script and one `initialize`, six refusals with their texts, first sign-in creates the account, second sign-in, "Remember me", another Google account with the same email, a Google sign-in that finishes an unconfirmed form registration, script blocked and **Try again**, phone width). For the Google flow, Google's script was replaced by a stand-in and the ID tokens were signed with a test key that the test backend was told to trust.
+  - Admin Users with self-registered accounts: list, details, CSV export and the edit form. A build without `VITE_GOOGLE_CLIENT_ID`: design-only buttons, Google's script is not requested.
+  - The Docker image, built in the cloud container from the `Dockerfile` with a client ID as build argument (plus two cloud-only lines so that `npm ci` trusts that container's proxy): nginx with the backend's `docker/admin-web.conf` serves `/verify-email`, `/login` and `/register`, and the Google button gets the client ID of the build argument.
+  - On Hsu's Mac folder after the copy: `tsc --noEmit`, `eslint .` and the 112 tests pass.
+  - Google's real script, loaded once with a made-up client ID: the button is drawn with the right shape, width and text, and a click opens Google's own window with "Error 401: invalid_client". So a wrong client ID or an address that is not listed in Google Cloud shows Google's error, not a text of the admin web.
+- Not tested: a sign-in with a real Google account and the real client ID, and mail through the real SMTP server. Both need Hsu's machine.
+- To use it: in the backend folder `docker compose up -d --build admin-web backend`, then `http://localhost:3000/register` and `http://localhost:3000/login`. In Google Cloud the client ID needs `http://localhost` and `http://localhost:3000` under **Authorized JavaScript origins**. For `npm run dev`, put `VITE_GOOGLE_CLIENT_ID` in the frontend `.env`.
+- Uncommitted.
+
 ## 2026-11-13 - Login page: Sign up link and register page (design only)
 
 - Requested: Hsu asked for a sign up / register screen, design only, with no backend API.

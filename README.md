@@ -11,6 +11,22 @@ Local configuration is read from `.env`. The available variables and development
 | `VITE_API_BASE_URL` | Backend API URL embedded by Vite | `/` for Compose; `http://localhost:8080` for Vite development |
 | `BACKEND_PATH` | Backend checkout relative to this Compose file | `../../backend/senior-project-smart-ai-web-backend` |
 | `FRONTEND_PORT` | Host port exposed by Docker Compose | `3000` |
+| `VITE_GOOGLE_CLIENT_ID` | OAuth 2.0 Web client ID for the Google button (not a secret) | empty: no real Google button |
+| `VITE_ADMIN_EMAIL_DOMAIN` | The only email domain that may register | `rsu.ac.th` |
+| `VITE_GOOGLE_HOSTED_DOMAIN` | Google Workspace domain offered by Google | empty: the email domain |
+
+The last three are needed in this `.env` only for `npm run dev`. With Docker
+Compose the backend `compose.yaml` passes `GOOGLE_OAUTH_CLIENT_ID`,
+`GOOGLE_OAUTH_HOSTED_DOMAIN` and `ADMIN_REGISTRATION_EMAIL_DOMAIN` of the
+backend `.env` to the image build; rebuild with
+`docker compose up -d --build admin-web` after a change. The address of the
+admin web must be listed under **Authorized JavaScript origins** of the client
+ID (for local work both `http://localhost` and `http://localhost:3000`). See
+`spec-md/45-api-implementation-admin-self-registration.md`.
+
+Every self-registration waits for a Super Admin, who approves or rejects it in
+**Admin Users** (details window of the account); the backend mails the person
+in both cases. See `spec-md/46-api-implementation-admin-registration-approval.md`.
 
 ## Local development
 

@@ -1,8 +1,14 @@
 import { useState } from 'react'
-import { Eye, EyeOff, LockKeyhole, LogIn, Mail } from 'lucide-react'
+import { Clock3, Eye, EyeOff, LockKeyhole, LogIn, Mail } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import {
+  PENDING_APPROVAL_NOTICE,
+  googleSignInFailure,
+  isPendingApproval,
+} from '../../utils/adminRegistration'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
+import SocialAuthButtons from './SocialAuthButtons'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -52,19 +58,22 @@ function getAuthenticationError(error) {
 }
 
 export default function LoginForm({ onSuccess }) {
-  const { login } = useAuth()
+  const { login, loginWithGoogle } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [errors, setErrors] = useState({})
   const [authError, setAuthError] = useState('')
+  // Spec 46: a registration that waits for approval is not a failed sign-in.
+  const [notice, setNotice] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleBusy, setIsGoogleBusy] = useState(false)
 
   async function handleSubmit(event) {
     event.preventDefault()
 
-    if (isLoading) {
+    if (isLoading || isGoogleBusy) {
       return
     }
 
@@ -73,11 +82,13 @@ export default function LoginForm({ onSuccess }) {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
       setAuthError('')
+      setNotice('')
       return
     }
 
     setErrors({})
     setAuthError('')
+    setNotice('')
     setIsLoading(true)
 
     try {
@@ -88,9 +99,39 @@ export default function LoginForm({ onSuccess }) {
       })
       onSuccess(session)
     } catch (error) {
-      setAuthError(getAuthenticationError(error))
+      if (isPendingApproval(error)) {
+        setNotice(PENDING_APPROVAL_NOTICE)
+      } else {
+        setAuthError(getAuthenticationError(error))
+      }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Spec 45, section 7: the ID token of the Google button is checked by the
+  // backend, which answers like a password login. "Remember me" applies too.
+  async function handleGoogleCredential(idToken) {
+    if (isLoading || isGoogleBusy) {
+      return
+    }
+
+    setErrors({})
+    setAuthError('')
+    setNotice('')
+    setIsGoogleBusy(true)
+
+    try {
+      const session = await loginWithGoogle({ idToken, rememberMe })
+      onSuccess(session)
+    } catch (error) {
+      if (isPendingApproval(error)) {
+        setNotice(PENDING_APPROVAL_NOTICE)
+      } else {
+        setAuthError(googleSignInFailure(error))
+      }
+    } finally {
+      setIsGoogleBusy(false)
     }
   }
 
@@ -109,6 +150,16 @@ export default function LoginForm({ onSuccess }) {
             role="alert"
           >
             {authError}
+          </div>
+        )}
+
+        {notice && (
+          <div
+            className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm leading-5 text-[#92400E]"
+            role="status"
+          >
+            <Clock3 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{notice}</p>
           </div>
         )}
 
@@ -178,7 +229,7 @@ export default function LoginForm({ onSuccess }) {
           </button>
         </div>
 
-        <Button isLoading={isLoading} type="submit">
+        <Button disabled={isGoogleBusy} isLoading={isLoading} type="submit">
           {isLoading ? (
             <>
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
@@ -192,6 +243,19 @@ export default function LoginForm({ onSuccess }) {
           )}
         </Button>
       </form>
+
+      <SocialAuthButtons
+        actionLabel="Sign in"
+        isBusy={isGoogleBusy}
+        onGoogleCredential={handleGoogleCredential}
+        onGoogleError={() => setAuthError(googleSignInFailure(null))}
+        onSelect={() =>
+          setAuthError(
+            'Sign in with Google is not set up on this site yet. Please use your email and password.',
+          )
+        }
+        showApple={false}
+      />
     </div>
   )
 }

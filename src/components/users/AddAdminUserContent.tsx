@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { accountStatuses, adminRoles } from '../../types/adminUser'
-import { buildCreatePayload, buildUpdatePayload, emptyAdminForm, validateAdminForm, type AdminFormErrors, type AdminFormValues } from '../../utils/addAdminUser'
+import { adminRoles, isRegistrationStatus } from '../../types/adminUser'
+import { accountStatusChoices, buildCreatePayload, buildUpdatePayload, emptyAdminForm, validateAdminForm, type AdminFormErrors, type AdminFormValues } from '../../utils/addAdminUser'
 import { adminUserFieldErrors, apiErrorMessage } from '../../utils/apiError'
 import { createUser, getUserById, isValidUserId, updateUser } from '../../services/userService'
 import Modal from '../ui/Modal'
@@ -95,7 +95,7 @@ export default function AddAdminUserContent() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (submitting.current || created || loadingUser || loadError || (id != null && loadedId !== editId)) return
-    const nextErrors = validateAdminForm(value, { requirePassword: editId == null })
+    const nextErrors = validateAdminForm(value, { requirePassword: editId == null, currentStatus: editId == null ? '' : initial.current.accountStatus })
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) {
       setFeedback('Please correct the highlighted fields.')
@@ -130,17 +130,19 @@ export default function AddAdminUserContent() {
     }
   }
   const control = 'h-[42px] w-full min-w-0 rounded-xl border-[0.625px] bg-white px-3.5 text-[13.5px] text-[#17213c] placeholder:text-[#17213c]/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#68728a] disabled:opacity-60'
-  function field(name: Exclude<keyof AdminFormValues, 'forcePasswordChange'>, label: string, placeholder: string, options?: { type?: string; full?: boolean; optional?: boolean; choices?: readonly { value: string; label: string }[] }) {
+  function field(name: Exclude<keyof AdminFormValues, 'forcePasswordChange'>, label: string, placeholder: string, options?: { type?: string; full?: boolean; optional?: boolean; choices?: readonly { value: string; label: string }[]; disabled?: boolean; hint?: string }) {
     const password = name === 'temporaryPassword' || name === 'confirmPassword'
     const error = errors[name]
     const classes = `${control} ${error ? 'border-[#d80255]' : 'border-[#e5e8f0]'} ${password ? 'pr-12' : ''}`
-    const attributes = { id: name, name, required: !options?.optional, value: value[name], 'aria-invalid': !!error, 'aria-describedby': error ? `${name}-error` : undefined, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => update(name, event.target.value) }
+    const describedBy = [error ? `${name}-error` : '', options?.hint ? `${name}-hint` : ''].filter(Boolean).join(' ') || undefined
+    const attributes = { id: name, name, required: !options?.optional, disabled: options?.disabled, value: value[name], 'aria-invalid': !!error, 'aria-describedby': describedBy, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => update(name, event.target.value) }
     return <div className={options?.full ? 'sm:col-span-2' : undefined}>
       <label htmlFor={name} className="mb-1.5 block text-[13px] leading-[19.5px] font-semibold">{label}{!options?.optional && <span aria-hidden="true" className="ml-0.5 text-[#d80255]">*</span>}</label>
       <div className="relative">{options?.choices ? <select {...attributes} className={`${classes} appearance-none ${!value[name] ? 'text-[#9ca3af]' : ''}`}>
         {placeholder && <option value="">{placeholder}</option>}{options.choices.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select> : <input {...attributes} className={classes} type={password ? visible[name] ? 'text' : 'password' : options?.type ?? 'text'} placeholder={placeholder} autoComplete={password ? 'new-password' : name === 'email' ? 'email' : name === 'phoneNumber' ? 'tel' : name === 'firstName' ? 'given-name' : name === 'lastName' ? 'family-name' : 'off'} />}
       {password && <button type="button" aria-label={`${visible[name] ? 'Hide' : 'Show'} ${label.toLowerCase()}`} aria-pressed={visible[name]} onClick={() => setVisible(previous => ({ ...previous, [name]: !previous[name] }))} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-xl focus-visible:outline-2"><img src="/assets/figma/admin-eye.svg" width="16" height="16" alt="" /></button>}</div>
+      {options?.hint && <p id={`${name}-hint`} className="mt-1.5 text-xs leading-[18px] text-[#68728a]">{options.hint}</p>}
       {error && <p id={`${name}-error`} className="mt-1.5 text-xs text-[#d80255]">{error}</p>}
     </div>
   }
@@ -160,7 +162,8 @@ export default function AddAdminUserContent() {
           </FormSection>
           <FormSection title="Administrative Access" description="Department assignment, role, and initial account status.">
             {field('departmentId', 'Department', 'No department', { optional: true, choices: initial.current.departmentId ? [{ value: initial.current.departmentId, label: `Department ID ${initial.current.departmentId}` }] : [] })}
-            {field('accountStatus', 'Account Status', '', { choices: accountStatuses, optional: true })}
+            {/* Spec 46 section 4.4: a waiting registration keeps its status until the Super Admin approves or rejects it. */}
+            {field('accountStatus', 'Account Status', '', { choices: accountStatusChoices(initial.current.accountStatus), optional: true, ...(editId != null && isRegistrationStatus(initial.current.accountStatus) ? { disabled: true, hint: 'Approve or reject this registration in the user details.' } : {}) })}
             {field('roleId', 'Role', 'Select a role', { choices: [...adminRoles, ...(existingRole && !adminRoles.some(role => role.id === existingRole.id) ? [existingRole] : [])].map(role => ({ value: String(role.id), label: role.name })), full: true })}
           </FormSection>
           {editId == null && <FormSection title="Security" description="Set a temporary password and choose whether to require a change on first login.">

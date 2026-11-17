@@ -9,7 +9,8 @@ export interface AdminUserRole {
 
 export interface AdminUserSummary {
   id: number
-  employeeId: string
+  // null for an account that registered itself (form or Google).
+  employeeId: string | null
   firstName: string
   lastName: string
   email: string
@@ -84,3 +85,7 @@ export declare function getUserById(id: number): Promise<AdminUserDetail>
 export declare function updateUser(id: number, payload: UpdateAdminUserPayload): Promise<AdminUserDetail>
 
 export declare function deleteUser(id: number): Promise<void>
+
+export declare function approveUser(id: number): Promise<AdminUserDetail>
+
+export declare function rejectUser(id: number): Promise<void>

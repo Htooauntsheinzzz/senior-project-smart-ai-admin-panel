@@ -10,6 +10,15 @@ COPY . .
 ARG VITE_API_BASE_URL=http://localhost:8080
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
+# Sign in with Google and registration texts (spec-md/45). None of these is a
+# secret. The backend compose.yaml passes them from the backend .env.
+ARG VITE_GOOGLE_CLIENT_ID=
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+ARG VITE_GOOGLE_HOSTED_DOMAIN=
+ENV VITE_GOOGLE_HOSTED_DOMAIN=${VITE_GOOGLE_HOSTED_DOMAIN}
+ARG VITE_ADMIN_EMAIL_DOMAIN=rsu.ac.th
+ENV VITE_ADMIN_EMAIL_DOMAIN=${VITE_ADMIN_EMAIL_DOMAIN}
+
 RUN npm run build
 
 FROM nginx:1.28-alpine AS runtime
